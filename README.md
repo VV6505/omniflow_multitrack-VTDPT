@@ -15,7 +15,7 @@ Xem cẩm nang hướng dẫn demo chi tiết đầy đủ tại: **[HUONG_DAN_D
 
 ## 📦 Cấu trúc Thư mục Dự án
 ```
-e:\Desktop\VTDPT\
+omniflow_multitrack/
 ├── omniflow_multitrack_pro.html   # File ứng dụng duy nhất (Single Page Application)
 ├── HUONG_DAN_DEMO.md              # Cẩm nang hướng dẫn demo & tài liệu nghiệp vụ chi tiết
 ├── README.md                      # Tệp giới thiệu dự án
