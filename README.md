@@ -1,12 +1,12 @@
 # OmniFlow 360 Pro — Multimodal Logistics Control Tower
 > *Hệ Thống Trung Tâm Điều Hành Vận Tải Đa Phương Thức Thông Minh (VN Logistics OS v5.0)*
 
-Xem cẩm nang hướng dẫn demo chi tiết đầy đủ tại: **[HUONG_DAN_DEMO.md]([https://github.com/VV6505/omniflow_multitrack-VTDPT/blob/main/HUONG_DAN_DEMO.md])**
+Xem cẩm nang hướng dẫn demo chi tiết đầy đủ tại: **[HUONG_DAN_DEMO.md](HUONG_DAN_DEMO.md)**
 
 ---
 
 ## 🚀 Khởi chạy nhanh (Quick Start)
-1. Mở trực tiếp file **[`omniflow_multitrack_pro.html`](file:///e:/Desktop/VTDPT/omniflow_multitrack_pro.html)** bằng trình duyệt Google Chrome hoặc Microsoft Edge.
+1. Mở trực tiếp file **[`omniflow_multitrack_pro.html`](./omniflow_multitrack_pro.html)** bằng trình duyệt Google Chrome hoặc Microsoft Edge.
 2. Ứng dụng chạy độc lập hoàn toàn phía Client-side (Zero-backend Standalone).
 3. Không cần cài đặt `npm install` hay khởi động server phức tạp.
 4. Tùy chọn: Nhập Google Gemini API Key tại Tab 6 để kích hoạt Trợ lý AI Trực tuyến siêu tốc.
