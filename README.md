@@ -1,7 +1,7 @@
 # OmniFlow 360 Pro — Multimodal Logistics Control Tower
 > *Hệ Thống Trung Tâm Điều Hành Vận Tải Đa Phương Thức Thông Minh (VN Logistics OS v5.0)*
 
-Xem cẩm nang hướng dẫn demo chi tiết đầy đủ tại: **[HUONG_DAN_DEMO.md]([file:///e:/Desktop/VTDPT/HUONG_DAN_DEMO.md](https://github.com/VV6505/omniflow_multitrack-VTDPT/blob/main/HUONG_DAN_DEMO.md))**
+Xem cẩm nang hướng dẫn demo chi tiết đầy đủ tại: **[HUONG_DAN_DEMO.md]([https://github.com/VV6505/omniflow_multitrack-VTDPT/blob/main/HUONG_DAN_DEMO.md])**
 
 ---
 
