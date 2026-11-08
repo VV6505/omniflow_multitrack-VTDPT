@@ -1701,6 +1701,12 @@
         function mergeBundledDocuments(data) {
             var next = clone(data), defaults = BUNDLED_DOCUMENTS.bindings;
             next.shipments.forEach(function (s) { var supplied = defaults[s.id]; if (!supplied) return; var binding = next.bindings[s.id] || (next.bindings[s.id] = {});['bill', 'customs'].forEach(function (kind) { if (!binding[kind] && supplied[kind]) binding[kind] = clone(supplied[kind]); }); });
+            var original8821 = next.shipments.find(function (s) { return s.id === 'SHIP-VN-8821'; });
+            if (original8821) {
+                // Số liệu được đối chiếu từ ảnh B/L mẫu đã nhúng.
+                var source8821 = { weight: 24.85, volume: 28.5, quantity: '1 CONTAINER', etd: '09/09/2026', eta: '11/10/2026', shipperAddress: 'ROBERT-BOSCH-PLATZ 1, 70839 GERLINGEN-SCHILLERHÖHE, GERMANY', consigneeAddress: 'ĐÌNH VŨ – CÁT HẢI ECONOMIC ZONE, CÁT HẢI ISLAND, HẢI PHÒNG, VIỆT NAM' };
+                Object.keys(source8821).forEach(function (key) { if (original8821[key] == null || original8821[key] === '') original8821[key] = source8821[key]; });
+            }
             var original3391 = next.shipments.find(function (s) { return s.id === 'SHIP-VN-3391'; });
             if (original3391) {
                 // Các trường này được chép từ ảnh B/L mẫu đã nhúng, kể cả hồ sơ đã lưu từ phiên trước.
@@ -2050,21 +2056,24 @@
                 var originPort = routePoints[0] || 'Chưa khai báo';
                 var destPort = routePoints[routePoints.length - 1] || 'Chưa khai báo';
                 var routeLegs = routePlanFor(s).legs || [];
-                var seaLeg = routeLegs.find(function (g) { return g.m === 'sea'; });
-                var seaNames = seaLeg ? seaLeg.l.split('→').map(function (p) { return p.trim(); }) : [];
-                var loadingPort = seaNames[0] || originPort;
-                var dischargePort = seaNames[seaNames.length - 1] || destPort;
+                var seaLegs = routeLegs.filter(function (g) { return g.m === 'sea'; });
+                var firstSeaNames = seaLegs.length ? seaLegs[0].l.split('→').map(function (p) { return p.trim(); }) : [];
+                var lastSeaNames = seaLegs.length ? seaLegs[seaLegs.length - 1].l.split('→').map(function (p) { return p.trim(); }) : [];
+                var loadingPort = firstSeaNames[0] || originPort;
+                var dischargePort = lastSeaNames[lastSeaNames.length - 1] || destPort;
                 var hsMatch = String(s.cargo || '').match(/\bHS\s*:?\s*(\d{4}[.\s]?\d{2}[.\s]?\d{2})\b/i);
                 var hsCode = s.hsCode || (hsMatch && hsMatch[1]) || 'Chưa khai báo';
                 drawFieldBox(600, 125, 280, 58, 'Pre-Carriage By', s.modeShort ? s.modeShort.split('+')[0].trim() : 'Road Feeder');
                 drawFieldBox(880, 125, 280, 58, 'Place of Receipt', originPort);
-                drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', s.vessel || s.flightNo || 'MOL TRUTH 024E');
+                drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', (s.vessel || s.flightNo || 'Chưa khai báo') + (s.voyage ? ' / ' + s.voyage : ''));
                 drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', loadingPort);
                 drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', dischargePort);
                 drawFieldBox(880, 240, 280, 58, 'Place of Delivery', destPort);
                 drawFieldBox(600, 298, 280, 57, 'Carrier / Liners Agent', s.carrier || 'MAERSK / ONE LINE CO., LTD');
                 drawFieldBox(880, 298, 280, 57, 'Movement Type & Freight', 'FCL/FCL · ' + (s.incoterm || 'CIF Hải Phòng'));
                 drawFieldBox(600, 355, 560, 115, 'Export References & Customs Info', 'TK Hải Quan: ' + (s.customsDec || 'Chờ mở') + ' · Phân luồng: ' + customsLabel(s.customsStatus), 'Incoterms: ' + (s.incoterm || 'CIF') + ' · Free time D&D: ' + (s.dd || 'Chưa hết hạn'));
+                ctx.fillStyle = '#334155'; ctx.font = '12px Inter, sans-serif';
+                if (s.etd || s.eta) wrapText('ETD: ' + (s.etd || 'Chưa khai báo') + '  ·  ETA: ' + (s.eta || 'Chưa khai báo'), 610, 438, 530, 15);
 
                 // 2. BẢNG CHI TIẾT HÀNG HÓA
                 var tableTop = 475;
@@ -2125,15 +2134,13 @@
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = '900 16px Inter, monospace';
-                fitText((s.weight ? s.weight + ' MTS' : 'Chưa khai báo'), 880, rY, 125);
+                fitText((s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, rY, 125);
                 ctx.fillStyle = '#475569';
                 ctx.font = '12px Inter, sans-serif';
-                fitText('TARE: ' + (s.tare || 'Chưa khai báo'), 880, rY + 24, 125);
-                fitText('VGM: ' + (s.vgm || 'Chưa khai báo'), 880, rY + 44, 125);
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = '900 16px Inter, monospace';
-                fitText((s.volume ? s.volume + ' CBM' : 'Chưa khai báo'), 1030, rY, 120);
+                fitText((s.volume ? Number(s.volume).toFixed(3) + ' CBM' : 'Chưa khai báo'), 1030, rY, 120);
                 ctx.fillStyle = '#475569';
                 ctx.font = '12px Inter, sans-serif';
                 ctx.fillText('STANDARD CUBE', 1030, rY + 24);
@@ -2145,7 +2152,7 @@
                 ctx.fillStyle = '#0F172A';
                 ctx.font = 'bold 13px Inter, sans-serif';
                 ctx.fillText('TOTAL CONTAINERS / PACKAGES: 1 UNIT (FCL/FCL) — CLEAN ON BOARD', 55, tableTop + 520);
-                fitText('TOTAL GROSS: ' + (s.weight ? s.weight + ' MTS' : 'Chưa khai báo'), 880, tableTop + 520, 265);
+                fitText('TOTAL GROSS: ' + (s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, tableTop + 520, 265);
 
                 // 3. KHU VỰC ĐIỀU KHOẢN VÀ CON DẤU MỘC
                 var bTop = 1030;
@@ -2298,10 +2305,58 @@
             }
         }
 
+        async function scanBillFields(binding) {
+            var key = getGeminiKey();
+            if (!key || !binding || /_DRAFT\.jpg$/i.test(binding.name || '')) return {};
+            var asset;
+            try { asset = await getAsset(binding); } catch (e) { console.warn('Không mở được ảnh nguồn để quét:', e); return {}; }
+            var match = asset && asset.data && asset.data.match(/^data:([^;,]+);base64,(.*)$/s);
+            if (!match || !/^image\//.test(match[1])) return {};
+            var prompt = 'Đọc TOÀN BỘ ảnh vận đơn, đặc biệt bảng PARTICULARS FURNISHED BY SHIPPER và các ô Weight/Measurement. Chỉ trả một JSON object, không markdown. Khóa: weight (số tấn; nếu ảnh ghi KGS thì chia 1000), volume (số CBM), quantity, shipperAddress, consigneeAddress, notifyParty, notifyAddress, vessel, voyage, seal, etd, eta. Giữ nguyên chữ của các trường văn bản; số dùng dấu chấm thập phân JSON (ví dụ 24,850 KGS = 24.85 tấn; 28.500 CBM = 28.5). Mỗi trường không nhìn thấy rõ phải là null. Không suy đoán, không lấy TARE hoặc VGM làm gross weight.';
+            for (var i = 0; i < Math.min(2, GEMINI_MODELS.length); i++) {
+                try {
+                    var controller = new AbortController(), timer = setTimeout(function () { controller.abort(); }, 12000);
+                    var response;
+                    try {
+                        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODELS[i] + ':generateContent?key=' + encodeURIComponent(key), {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: match[1], data: match[2] } }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 1024 } })
+                        });
+                    } finally { clearTimeout(timer); }
+                    if (!response.ok) continue;
+                    var result = await response.json(), raw = result.candidates?.[0]?.content?.parts?.map(function (p) { return p.text || ''; }).join('') || '';
+                    var fields = JSON.parse(raw);
+                    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) continue;
+                    var clean = {};
+                    ['weight', 'volume'].forEach(function (k) {
+                        var n = fields[k];
+                        if (typeof n === 'string') {
+                            var raw = n.trim(), normalized = raw.replace(/[^\d.,]/g, '');
+                            var inKg = k === 'weight' && /\b(kgs?|kilograms?)\b/i.test(raw);
+                            if (inKg && /^\d{1,3}[,.]\d{3}$/.test(normalized)) normalized = normalized.replace(/[,.]/g, '');
+                            else if (/^\d{1,3}(,\d{3}){2,}(\.\d+)?$/.test(normalized)) normalized = normalized.replace(/,/g, '');
+                            else if (normalized.includes(',') && !normalized.includes('.')) normalized = normalized.replace(',', '.');
+                            n = Number(normalized);
+                            if (inKg) n /= 1000;
+                        }
+                        if (Number.isFinite(n) && n > 0 && n < 100000) clean[k] = n;
+                    });
+                    ['quantity', 'shipperAddress', 'consigneeAddress', 'notifyParty', 'notifyAddress', 'vessel', 'voyage', 'seal', 'etd', 'eta'].forEach(function (k) { if (typeof fields[k] === 'string' && fields[k].trim()) clean[k] = fields[k].trim().slice(0, 500); });
+                    return clean;
+                } catch (e) { console.warn('Không đọc được JSON từ ảnh vận đơn:', e); }
+            }
+            return {};
+        }
         async function generateAndBindDocuments(shipId) {
             var s = shipments.find(function (item) { return item.id === shipId; });
             if (!s) { notify('Không tìm thấy thông tin lô hàng ' + shipId); return; }
-            var documentShipment = Object.assign({}, s, {
+            var priorBinding = appData.bindings[shipId] || {};
+            var sourceBinding = priorBinding.sourceBill || (priorBinding.bill && !/_DRAFT\.jpg$/i.test(priorBinding.bill.name || '') ? priorBinding.bill : null) || BUNDLED_DOCUMENTS.bindings[shipId]?.bill;
+            var missingSourceFields = ['weight', 'volume', 'quantity', 'shipperAddress', 'consigneeAddress', 'notifyParty', 'notifyAddress', 'voyage', 'seal', 'etd'].some(function (k) { return s[k] == null || s[k] === ''; });
+            var scanned = missingSourceFields ? await scanBillFields(sourceBinding) : {};
+            var documentShipment = Object.assign({}, s);
+            Object.keys(scanned).forEach(function (k) { if (documentShipment[k] == null || documentShipment[k] === '') documentShipment[k] = scanned[k]; });
+            Object.assign(documentShipment, {
                 bl: s.bl || 'MAEU-' + shipId.replace(/[^\d]/g, '') + '88',
                 customsDec: s.customsDec || '106' + Math.floor(100000000 + Math.random() * 900000000)
             });
@@ -2324,13 +2379,15 @@
                 if (!next.bindings) next.bindings = {};
                 next.bindings[shipId] = {
                     bill: billAsset,
-                    customs: customsAsset
+                    customs: customsAsset,
+                    sourceBill: sourceBinding || null
                 };
 
                 var shipRecord = next.shipments.find(function (item) { return item.id === shipId; });
                 if (shipRecord) {
                     shipRecord.bl = documentShipment.bl;
                     shipRecord.customsDec = documentShipment.customsDec;
+                    Object.keys(scanned).forEach(function (k) { if (shipRecord[k] == null || shipRecord[k] === '') shipRecord[k] = scanned[k]; });
                 }
 
                 await commitData(next, 'AI tự động sinh B/L & Tờ khai Excel cho ' + shipId);
