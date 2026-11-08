@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         tailwind.config = { theme: { extend: { colors: { navy: { 800: '#0B192C', 900: '#1E3E62' }, maritime: { blue: '#005C97', cyan: '#36B5B0' }, alert: { orange: '#FF6B00', red: '#E63946', green: '#2A9D8F' } } } } }
     </script>
@@ -1983,8 +1984,53 @@
             return { id: id, name: name, size: size, kind: kind };
         }
 
-        function createBillOfLadingCanvas(s) {
-            return new Promise(function (resolve) {
+        function billShareSnapshot(s) {
+            var keys = ['id', 'bl', 'booking', 'shipper', 'shipperAddress', 'consignee', 'consigneeAddress', 'notifyParty', 'notifyAddress', 'modeShort', 'route', 'vessel', 'flightNo', 'voyage', 'carrier', 'incoterm', 'customsDec', 'customsStatus', 'dd', 'cargo', 'hsCode', 'container', 'seal', 'containerType', 'quantity', 'weight', 'volume', 'showTemp', 'temp', 'etaPlanned', 'etd', 'eta', 'generatedAt'];
+            var snapshot = {};
+            keys.forEach(function (key) { if (s[key] !== undefined && s[key] !== null) snapshot[key] = s[key]; });
+            snapshot.routeLegs = routePlanFor(s).legs.map(function (leg) { return { m: leg.m, l: leg.l }; });
+            return snapshot;
+        }
+        async function makeBillShareUrl(s) {
+            if (typeof CompressionStream === 'undefined') throw new Error('Trình duyệt chưa hỗ trợ nén dữ liệu để tạo QR.');
+            var bytes = new TextEncoder().encode(JSON.stringify(billShareSnapshot(s)));
+            var compressed = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+            var encoded = btoa(String.fromCharCode.apply(null, compressed)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            var url = 'https://vv6505.github.io/omniflow_multitrack-VTDPT/#bill=' + encoded;
+            if (url.length > 2200) throw new Error('Dữ liệu vận đơn quá dài để đưa vào mã QR.');
+            return url;
+        }
+        async function drawBillQRCode(ctx, s) {
+            if (typeof QRCode === 'undefined') throw new Error('Chưa tải được thư viện tạo mã QR.');
+            var url = await makeBillShareUrl(s);
+            var holder = document.createElement('div');
+            new QRCode(holder, { text: url, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L });
+            var qrCanvas = holder.querySelector('canvas');
+            if (!qrCanvas) throw new Error('Không vẽ được mã QR của vận đơn.');
+            ctx.fillStyle = '#FFFFFF'; ctx.fillRect(448, 1335, 304, 304);
+            ctx.drawImage(qrCanvas, 450, 1337, 300, 300);
+            ctx.fillStyle = '#334155'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('QUÉT ĐỂ XEM BẢN VẬN ĐƠN TRÊN ĐIỆN THOẠI', 600, 1650);
+            ctx.textAlign = 'left';
+        }
+        async function showSharedBill() {
+            document.body.innerHTML = '<main style="max-width:900px;margin:24px auto;padding:16px;font-family:Arial,sans-serif"><h1>Vận đơn OmniFlow</h1><p id="shared-status">Đang mở vận đơn…</p><div id="shared-bill"></div></main>';
+            try {
+                if (typeof DecompressionStream === 'undefined') throw new Error('Trình duyệt chưa hỗ trợ mở dữ liệu vận đơn.');
+                var encoded = location.hash.slice('#bill='.length).replace(/-/g, '+').replace(/_/g, '/');
+                var bytes = Uint8Array.from(atob(encoded), function (c) { return c.charCodeAt(0); });
+                var json = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+                var s = JSON.parse(json);
+                if (!s || typeof s.id !== 'string' || !Array.isArray(s.routeLegs) || !s.routeLegs.length) throw new Error('Dữ liệu vận đơn không hợp lệ.');
+                var dataUrl = await createBillOfLadingCanvas(s);
+                var img = document.createElement('img'); img.src = dataUrl; img.alt = 'Vận đơn ' + (s.bl || s.id); img.style = 'display:block;width:100%;height:auto;border:1px solid #cbd5e1';
+                var link = document.createElement('a'); link.href = dataUrl; link.download = 'BL_' + String(s.bl || s.id).replace(/[^A-Za-z0-9_-]/g, '_') + '.jpg'; link.textContent = 'Tải ảnh vận đơn'; link.style = 'display:inline-block;margin:12px 0';
+                el('shared-bill').appendChild(link); el('shared-bill').appendChild(img);
+                text('shared-status', 'Bản vận đơn mô phỏng · ' + s.id + ' · Dữ liệu được mang trong mã QR.');
+            } catch (e) { text('shared-status', 'Không mở được vận đơn từ mã QR: ' + e.message); }
+        }
+
+        async function createBillOfLadingCanvas(s) {
                 var canvas = document.createElement('canvas');
                 canvas.width = 1200;
                 canvas.height = 1720;
@@ -2197,20 +2243,6 @@
                 ctx.font = 'bold 12px Inter, monospace';
                 ctx.fillText('*' + (s.bl || s.id) + '*', 120, barY + 75);
 
-                var qx = 450, qy = barY + 5, qs = 68;
-                ctx.strokeStyle = '#0F172A';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(qx, qy, qs, qs);
-                ctx.fillRect(qx + 8, qy + 8, 16, 16);
-                ctx.fillRect(qx + qs - 24, qy + 8, 16, 16);
-                ctx.fillRect(qx + 8, qy + qs - 24, 16, 16);
-                ctx.fillStyle = '#0F172A';
-                ctx.fillRect(qx + 30, qy + 30, 8, 8);
-                ctx.fillRect(qx + 42, qy + 24, 10, 6);
-                ctx.fillRect(qx + 24, qy + 44, 14, 8);
-                ctx.font = '9px Inter, sans-serif';
-                ctx.fillText('SCAN VERIFY', qx + 4, qy + qs + 14);
-
                 ctx.fillStyle = '#64748B';
                 ctx.font = '9px Inter, sans-serif';
                 ctx.fillText('RECEIVED by the Carrier from the Shipper in apparent good order and condition unless otherwise indicated herein, the Goods or the', 55, 1290);
@@ -2242,7 +2274,7 @@
                 ctx.fillText('FREIGHT PREPAID', 0, 2);
                 ctx.fillText('VERIFIED & ISSUED', 0, 22);
                 ctx.font = '9px Inter, sans-serif';
-                ctx.fillText(new Date().toLocaleDateString('vi-VN'), 0, 42);
+                ctx.fillText(new Date(s.generatedAt || Date.now()).toLocaleDateString('vi-VN'), 0, 42);
                 ctx.fillText('SEALED BY MASTER', 0, 56);
 
                 ctx.strokeStyle = '#0284C7';
@@ -2258,10 +2290,10 @@
                 ctx.fillStyle = '#94A3B8';
                 ctx.font = 'bold 11px Inter, sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('SIGNED AS AGENT FOR THE CARRIER · OMNIFLOW 360 PRO SMART LOGISTICS OS', 600, 1660);
+                ctx.fillText('OMNIFLOW 360 PRO · BẢN VẬN ĐƠN MÔ PHỎNG', 600, 1670);
 
-                resolve(canvas.toDataURL('image/jpeg', 0.94));
-            });
+                await drawBillQRCode(ctx, s);
+                return canvas.toDataURL('image/jpeg', 0.94);
         }
 
         function createCustomsExcelFile(s) {
@@ -2383,7 +2415,8 @@
             Object.keys(scanned).forEach(function (k) { if (documentShipment[k] == null || documentShipment[k] === '') documentShipment[k] = scanned[k]; });
             Object.assign(documentShipment, {
                 bl: s.bl || 'MAEU-' + shipId.replace(/[^\d]/g, '') + '88',
-                customsDec: s.customsDec || '106' + Math.floor(100000000 + Math.random() * 900000000)
+                customsDec: s.customsDec || '106' + Math.floor(100000000 + Math.random() * 900000000),
+                generatedAt: new Date().toISOString()
             });
 
             notify('🤖 AI đang đọc dữ liệu lô ' + shipId + ' và khởi tạo Vận đơn B/L & Tờ khai Excel...');
@@ -3479,7 +3512,7 @@
         }
 
         function switchTab(tab) { if (tab === 'chat') setTimeout(updateGeminiUIBadge, 50); var tabs = ['dashboard', 'shipments', 'ebl', 'ai', 'alerts', 'chat']; if (!tabs.includes(tab)) return; tabs.forEach(function (id) { el('tab-' + id).classList.add('hidden'); el('tb-' + id).classList.remove('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + id).classList.add('text-slate-400', 'border-transparent') }); el('tab-' + tab).classList.remove('hidden'); el('tb-' + tab).classList.add('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + tab).classList.remove('text-slate-400', 'border-transparent'); if (tab === 'dashboard') { renderDashboard(); setTimeout(initMap, 60) } if (tab === 'shipments') renderShipTable(value('ship-filter') || 'ALL'); if (tab === 'ebl') { renderEBLTable(); renderTemplates() } if (tab === 'alerts') renderAlerts(); if (tab === 'ai' && analysisMap) setTimeout(function () { analysisMap.invalidateSize() }, 80); }
-        window.onload = initializeDemo;
+        window.onload = function () { if (location.hash.startsWith('#bill=')) showSharedBill(); else initializeDemo(); };
 
     </script>
 </body>
