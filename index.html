@@ -873,12 +873,45 @@
                         onclick="quickAsk('Hệ thống định tuyến đường biển bằng gì?')">🛰️ Thuật toán định tuyến</button>
                     <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-slate-900"
                         onclick="quickAsk('Dữ liệu được lưu trữ ở đâu?')">💾 Kiến trúc lưu trữ</button>
+                    <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-teal-950/40 text-teal-300 border-teal-500/40"
+                        onclick="el('chat-file-input').click()"><i class="fa-solid fa-paperclip mr-1"></i> Tải ảnh B/L, AWB hoặc Tờ khai</button>
                 </div>
-                <div class="flex gap-2 mt-auto"><input id="chat-input" class="field flex-1"
-                        placeholder="Ví dụ: SHIP-VN-8821, MAEU2204567, dán bài báo về Suez/Biển Đỏ, hỏi Incoterms..."
-                        onkeydown="if(event.key==='Enter')sendChat()"><button class="primary"
-                        onclick="sendChat()">Gửi</button><button class="secondary" onclick="clearChat()">Xóa hội
-                        thoại</button>
+
+                <!-- KHUNG XEM TRƯỚC ẢNH ĐÍNH KÈM (Thumbnail Preview) -->
+                <div id="chat-attachment-preview" class="hidden mb-2 p-2.5 bg-slate-900 border border-teal-500/40 rounded-xl flex items-center justify-between gap-3 shadow-lg">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <img id="chat-preview-img" src="" alt="Ảnh đính kèm" class="w-12 h-12 object-cover rounded-lg border border-slate-700 shadow cursor-pointer bg-black/40 hover:opacity-90 transition" onclick="window.open(this.src, '_blank')" title="Bấm để xem ảnh phóng to">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 text-xs font-semibold text-teal-300">
+                                <i class="fa-regular fa-image"></i>
+                                <span id="chat-preview-name" class="truncate max-w-[220px]">anh_dinh_kem.jpg</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                <span id="chat-preview-size">0 KB</span>
+                                <span class="text-emerald-400 font-medium"><i class="fa-solid fa-check"></i> Sẵn sàng phân tích</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition" onclick="removeChatAttachment()" title="Hủy ảnh này">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 mt-auto">
+                    <!-- File input ẩn để chọn ảnh -->
+                    <input type="file" id="chat-file-input" accept="image/*" class="hidden" onchange="handleChatFileSelect(this.files)">
+                    
+                    <!-- Nút đính kèm ảnh -->
+                    <button type="button" class="secondary px-3 py-2 text-slate-300 hover:text-teal-300 border border-slate-700 hover:border-teal-500/50 rounded-lg flex items-center gap-1.5 text-xs transition whitespace-nowrap shadow-sm" onclick="el('chat-file-input').click()" title="Đính kèm ảnh B/L, AWB, tờ khai hoặc container (Hỗ trợ kéo thả & dán Ctrl+V)">
+                        <i class="fa-solid fa-paperclip text-sm"></i>
+                        <span class="hidden sm:inline">Ảnh</span>
+                    </button>
+
+                    <input id="chat-input" class="field flex-1"
+                        placeholder="Hỏi mã lô, B/L hoặc kéo thả / dán (Ctrl+V) ảnh chứng từ, container vào đây..."
+                        onkeydown="if(event.key==='Enter')sendChat()">
+                    <button class="primary px-4 py-2 text-xs font-semibold" onclick="sendChat()">Gửi</button>
+                    <button class="secondary px-3 py-2 text-xs" onclick="clearChat()">Xóa hội thoại</button>
                 </div>
             </div>
         </section>
@@ -1730,6 +1763,7 @@
             } catch (e) { notify('Dữ liệu cũ không mở được: ' + e.message + ' Đang hiển thị hồ sơ mẫu.'); }
             shipments = appData.shipments; refreshMapModels(false); renderAll();
             try { initMap() } catch (e) { notify('Bản đồ chưa mở được. Các chức năng nhập liệu vẫn dùng được: ' + e.message) }
+            try { setupChatPasteAndDrop() } catch (e) { console.warn('Không thể cài đặt dán ảnh khung chat:', e); }
         }
         function revokeDocumentURLs() { documentURLs.forEach(function (url) { URL.revokeObjectURL(url) }); documentURLs = []; }
         function openDialog(title, html) { revokeDocumentURLs(); text('demo-dialog-title', title); el('demo-dialog-body').innerHTML = html; el('demo-dialog').classList.add('show'); }
@@ -1963,11 +1997,15 @@
         // Bạn có thể điền trực tiếp API Key vào giữa cặp ngoặc kép dưới đây (hoặc nhập trên giao diện web):
         var GOOGLE_GEMINI_API_KEY = "";
 
-        // MẢNG MODEL LUÂN PHIÊN (ROTATION): Ưu tiên các model Flash siêu tốc ~1s & đang hoạt động 100% trên Google API
+        // MẢNG MODEL LUÂN PHIÊN (ROTATION): Ưu tiên các model Flash siêu tốc ~1s & hỗ trợ Multimodal Vision 100%
         var GEMINI_MODELS = [
-            'gemini-3.5-flash-lite',    // Siêu tốc ~1s, thế hệ 3.5 mới nhất, 100% hoạt động
-            'gemini-flash-lite-latest', // Alias chính thức của Google cho Flash Lite mới nhất
-            'gemini-3.1-flash-lite',    // Thế hệ 3.1 Flash Lite ổn định
+            'gemini-2.5-flash',         // Chuẩn Google Multimodal Vision ổn định nhất
+            'gemini-2.0-flash',         // Thế hệ Gemini 2.0 Flash đa phương thức
+            'gemini-1.5-flash',         // Bản Flash tiêu chuẩn toàn cầu
+            'gemini-2.5-flash-lite',    // Siêu tốc Flash Lite
+            'gemini-flash-lite-latest', // Alias chính thức của Google cho Flash Lite
+            'gemini-3.5-flash-lite',    // Thế hệ Flash Lite 3.5
+            'gemini-3.1-flash-lite',    // Thế hệ 3.1 Flash Lite
             'gemini-3-flash-preview',   // Thế hệ Gemini 3 Flash
             'gemini-3.8-flash',         // Thế hệ cao cấp 3.8 Flash
             'gemini-3.5-flash'          // Thế hệ 3.5 Flash tiêu chuẩn
@@ -2083,10 +2121,14 @@
                 "2. PHÂN TÍCH BÀI BÁO / TIN TỨC TRÊN MẠNG: Nếu người dùng dán bài báo, tin tức thời sự (về Kênh Suez, Biển Đỏ, bão lũ, đường sắt biên giới, xung đột hàng hải, cước container...): Đọc kỹ văn bản, tóm tắt sự kiện chính (2-3 gạch đầu dòng), và ĐẶC BIỆT phân tích xem trong 4 lô hàng trên (SHIP-VN-8821, SHIP-VN-9042, SHIP-VN-7710, SHIP-VN-3391) lô nào có nguy cơ bị ảnh hưởng và đề xuất phương án xử lý cụ thể.\n" +
                 "3. TRA CỨU NGHIỆP VỤ VẬN TẢI & HẢI QUAN: Nắm rõ từng chi tiết của 4 lô hàng (tiến độ, cảng đến, hãng tàu, nhiệt độ chuỗi lạnh của lô 7710, luồng đỏ hải quan của lô 3391, hạn Free time D&D, quyền và nghĩa vụ Incoterms 2020 CIF/EXW/CPT/FOB).\n" +
                 "4. GIẢI THÍCH KIẾN TRÚC MÃ NGUỒN: Trình bày chính xác về thuật toán định tuyến, IndexedDB, mô phỏng Animation chuyển động theo kiến trúc kỹ thuật nêu trên.\n" +
-                "5. Trả lời bằng tiếng Việt chuyên nghiệp, định dạng Markdown rõ ràng, có gạch đầu dòng và số liệu cụ thể.";
+                "5. PHÂN TÍCH HÌNH ẢNH / CHỨNG TỪ (KHI CÓ ẢNH ĐÍNH KÈM HOẶC DÁN TỪ BỘ NHỚ TẠM):\n" +
+                "   - Nếu người dùng gửi ảnh Vận đơn B/L, Air Waybill (AWB), Tờ khai Hải quan, Packing List, Invoice: Hãy đọc kỹ chữ và số liệu trong ảnh, bóc tách chính xác các trường: Số vận đơn / Booking, Người gửi (Shipper), Người nhận (Consignee), Cảng bốc (POL), Cảng dỡ (POD), Tên tàu/Chuyến bay, Số container và số chì (seal), Trọng lượng (GW/NW), Mô tả hàng hóa và nhiệt độ bảo quản lạnh (nếu có).\n" +
+                "   - Nếu người dùng gửi ảnh hiện trường hoặc container: Nhận diện vị trí móp méo, rách seal, biến dạng, gỉ sét hoặc nguy cơ rò rỉ/tổn thất, đồng thời đưa ra khuyến nghị lập biên bản hiện trường (Survey report).\n" +
+                "   - Đối chiếu với 4 lô hàng có sẵn trong hệ thống (SHIP-VN-8821, SHIP-VN-9042, SHIP-VN-7710, SHIP-VN-3391) nếu có điểm tương đồng.\n" +
+                "6. Trả lời bằng tiếng Việt chuyên nghiệp, định dạng Markdown rõ ràng, có gạch đầu dòng và số liệu cụ thể.";
         }
 
-        async function callGeminiWithRotation(apiKey, userText) {
+        async function callGeminiWithRotation(apiKey, userText, attachment) {
             var models = GEMINI_MODELS;
             var lastError = null;
             var systemContext = buildGeminiSystemContext();
@@ -2094,13 +2136,25 @@
             for (var i = 0; i < models.length; i++) {
                 var modelName = models[i];
                 var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + encodeURIComponent(apiKey);
+                
+                var userParts = [
+                    { text: systemContext + "\n\n--- YÊU CẦU / BÀI BÁO / CÂU HỎI / CHỨNG TỪ CỦA NGƯỜI DÙNG ---\n" + userText }
+                ];
+
+                if (attachment && attachment.base64 && attachment.mimeType) {
+                    userParts.push({
+                        inlineData: {
+                            mimeType: attachment.mimeType,
+                            data: attachment.base64
+                        }
+                    });
+                }
+
                 var requestBody = {
                     contents: [
                         {
                             role: 'user',
-                            parts: [
-                                { text: systemContext + "\n\n--- YÊU CẦU / BÀI BÁO / CÂU HỎI CỦA NGƯỜI DÙNG ---\n" + userText }
-                            ]
+                            parts: userParts
                         }
                     ],
                     generationConfig: {
@@ -2111,7 +2165,7 @@
 
                 try {
                     var controller = new AbortController();
-                    var timeoutId = setTimeout(function () { controller.abort(); }, 8000); // 8s timeout cho mỗi model
+                    var timeoutId = setTimeout(function () { controller.abort(); }, 12000); // 12s timeout cho mỗi model khi có ảnh
 
                     var res = await fetch(endpoint, {
                         method: 'POST',
@@ -2137,8 +2191,8 @@
                         var formatted = renderMarkdownBasic(text);
                         return '<div class="space-y-2">' +
                             '<div class="flex items-center justify-between pb-1.5 border-b border-slate-800 text-[11px] font-mono">' +
-                            '<span class="text-teal-400 font-semibold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Google Gemini AI Live (' + esc(modelName) + ')</span>' +
-                            '<span class="text-slate-500">Mô hình luân phiên</span>' +
+                            '<span class="text-teal-400 font-semibold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Google Gemini AI Live (' + esc(modelName) + ')' + (attachment ? ' · Vision Multimodal' : '') + '</span>' +
+                            '<span class="text-slate-500">' + (attachment ? 'Đã phân tích ảnh' : 'Mô hình luân phiên') + '</span>' +
                             '</div>' +
                             '<div class="text-xs leading-relaxed text-slate-200">' + formatted + '</div>' +
                             '</div>';
@@ -2581,11 +2635,39 @@
                     '</div>';
             }
 
-            // 2. Nếu có Gemini API Key, ưu tiên gọi mô hình LLM với mảng luân phiên để đọc báo & suy luận như ChatGPT!
+            // 2. Nếu có ảnh đính kèm: Ưu tiên gọi Gemini Multimodal Vision để đọc chứng từ/hình ảnh
             var apiKey = getGeminiKey();
+            if (attachment) {
+                if (!apiKey) {
+                    return '<div class="space-y-3">' +
+                        '<div class="p-3 bg-teal-500/10 border border-teal-500/30 rounded-xl text-xs">' +
+                        '<div class="flex items-center gap-2 text-teal-300 font-bold mb-1.5">' +
+                        '<i class="fa-solid fa-camera"></i>' +
+                        '<span>Đã nhận diện tệp ảnh: ' + esc(attachment.name) + ' (' + esc(attachment.size) + ')</span>' +
+                        '</div>' +
+                        '<p class="text-slate-300 leading-relaxed mb-2">' +
+                        'Để AI đọc quét chữ (OCR), bóc tách chứng từ Vận đơn B/L, AWB, Tờ khai Hải quan hoặc kiểm tra hư hỏng container, bạn hãy <b>nhập Google Gemini API Key</b> vào ô cấu hình ở đầu Tab 6.' +
+                        '</p>' +
+                        '<p class="text-amber-300/90 text-[11px] italic">' +
+                        '💡 Gợi ý: Google Gemini Flash hỗ trợ Multimodal Vision phân tích tài liệu và hình ảnh với độ chính xác cao.' +
+                        '</p>' +
+                        '</div>' +
+                        '</div>';
+                }
+                try {
+                    return await callGeminiWithRotation(apiKey, raw, attachment);
+                } catch (geminiErr) {
+                    return '<div class="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300">' +
+                        '<b>Lỗi phân tích hình ảnh qua Gemini:</b> ' + esc(geminiErr.message) + '<br>' +
+                        'Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.' +
+                        '</div>';
+                }
+            }
+
+            // 3. Nếu không có ảnh nhưng có Gemini API Key, gọi mô hình LLM với mảng luân phiên
             if (apiKey) {
                 try {
-                    return await callGeminiWithRotation(apiKey, raw);
+                    return await callGeminiWithRotation(apiKey, raw, null);
                 } catch (geminiErr) {
                     console.warn('Lỗi gọi Gemini API: ' + geminiErr.message + '. Chuyển sang phản hồi bằng bộ máy NLP Offline...');
                     var fallbackRes = localAiResponse(raw);
@@ -2596,33 +2678,184 @@
                 }
             }
 
-            // 3. Nếu chưa nhập API Key, chạy bằng bộ máy phân tích NLP Offline Cấp độ 2 & 3
+            // 4. Nếu chưa nhập API Key, chạy bằng bộ máy phân tích NLP Offline Cấp độ 2 & 3
             return localAiResponse(raw);
+        }
+
+        // =========================================================================
+        // QUẢN LÝ ĐÍNH KÈM ẢNH, DÁN ẢNH (CTRL+V) & KÉO THẢ TRỰC TIẾP VÀO KHUNG CHAT
+        // =========================================================================
+        var currentChatAttachment = null;
+
+        function showChatAttachmentPreview() {
+            if (!currentChatAttachment) return;
+            var previewBox = el('chat-attachment-preview');
+            var previewImg = el('chat-preview-img');
+            var previewName = el('chat-preview-name');
+            var previewSize = el('chat-preview-size');
+            if (previewBox && previewImg) {
+                previewImg.src = currentChatAttachment.dataUrl;
+                if (previewName) previewName.textContent = currentChatAttachment.name;
+                if (previewSize) previewSize.textContent = currentChatAttachment.size;
+                previewBox.classList.remove('hidden');
+                var input = el('chat-input');
+                if (input) input.focus();
+            }
+        }
+
+        function removeChatAttachment() {
+            currentChatAttachment = null;
+            var previewBox = el('chat-attachment-preview');
+            if (previewBox) previewBox.classList.add('hidden');
+            var fileInput = el('chat-file-input');
+            if (fileInput) fileInput.value = '';
+        }
+
+        function handleChatFileSelect(files) {
+            if (!files || !files.length) return;
+            var file = files[0];
+            if (!file.type || !file.type.startsWith('image/')) {
+                notify('Vui lòng chọn file hình ảnh (PNG, JPG, WEBP, GIF).');
+                return;
+            }
+            if (file.size > 12 * 1024 * 1024) {
+                notify('Kích thước ảnh tối đa 12 MB.');
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                currentChatAttachment = {
+                    name: file.name || 'anh_dinh_kem.png',
+                    size: (file.size / 1024).toFixed(1) + ' KB',
+                    mimeType: file.type || 'image/png',
+                    dataUrl: e.target.result,
+                    base64: e.target.result.split(',')[1]
+                };
+                showChatAttachmentPreview();
+                notify('Đã đính kèm ảnh: ' + currentChatAttachment.name);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setupChatPasteAndDrop() {
+            var input = el('chat-input');
+            var chatTab = el('tab-chat');
+
+            function processImageFile(file) {
+                if (!file || !file.type || !file.type.startsWith('image/')) return false;
+                if (file.size > 12 * 1024 * 1024) {
+                    notify('Kích thước ảnh tối đa 12 MB.');
+                    return false;
+                }
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    currentChatAttachment = {
+                        name: file.name || ('screenshot_' + new Date().toISOString().slice(11, 19).replace(/:/g, '') + '.png'),
+                        size: (file.size / 1024).toFixed(1) + ' KB',
+                        mimeType: file.type || 'image/png',
+                        dataUrl: e.target.result,
+                        base64: e.target.result.split(',')[1]
+                    };
+                    showChatAttachmentPreview();
+                    notify('Đã nhận diện ảnh: ' + currentChatAttachment.name);
+                };
+                reader.readAsDataURL(file);
+                return true;
+            }
+
+            // Hỗ trợ dán ảnh qua phím Ctrl + V (hoặc Command + V trên Mac)
+            if (input) {
+                input.addEventListener('paste', function (e) {
+                    var clipboard = e.clipboardData || window.clipboardData;
+                    if (!clipboard || !clipboard.items) return;
+                    for (var i = 0; i < clipboard.items.length; i++) {
+                        var item = clipboard.items[i];
+                        if (item.type && item.type.indexOf('image') !== -1) {
+                            var file = item.getAsFile();
+                            if (processImageFile(file)) {
+                                e.preventDefault();
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hỗ trợ kéo thả ảnh (Drag and Drop) trực tiếp vào khung chat
+            if (chatTab) {
+                ['dragenter', 'dragover'].forEach(function (eventName) {
+                    chatTab.addEventListener(eventName, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (input) input.classList.add('border-teal-400', 'bg-teal-950/20');
+                    });
+                });
+                ['dragleave', 'drop'].forEach(function (eventName) {
+                    chatTab.addEventListener(eventName, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (input) input.classList.remove('border-teal-400', 'bg-teal-950/20');
+                    });
+                });
+                chatTab.addEventListener('drop', function (e) {
+                    var dt = e.dataTransfer;
+                    if (dt && dt.files && dt.files.length) {
+                        for (var i = 0; i < dt.files.length; i++) {
+                            if (dt.files[i].type && dt.files[i].type.startsWith('image/')) {
+                                processImageFile(dt.files[i]);
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         async function sendChat() {
             var input = el('chat-input'), message = input.value.trim();
-            if (!message) return;
+            var attachment = currentChatAttachment;
+
+            if (!message && !attachment) return;
+
+            var displayMessage = message;
+            var promptForAi = message;
+            if (attachment && !message) {
+                displayMessage = "Đọc và bóc tách thông tin từ chứng từ / hình ảnh đính kèm này.";
+                promptForAi = "Đọc và bóc tách thông tin chi tiết từ hình ảnh chứng từ/vận đơn/container này giúp tôi: Nhận diện loại chứng từ, các mã số quan trọng (B/L, AWB, Container, Seal), cảng đi/đến, hãng vận chuyển, hàng hóa, số lượng, điều kiện bảo quản hoặc đánh giá hư hại/rủi ro.";
+            }
+
             var box = el('chat-msgs');
 
             // Tin nhắn người dùng
             var user = document.createElement('div');
-            user.className = 'chat-user';
-            user.textContent = message;
+            user.className = 'chat-user space-y-2';
+
+            var userHtml = '';
+            if (attachment) {
+                userHtml += '<div class="inline-block relative">' +
+                    '<img src="' + esc(attachment.dataUrl) + '" alt="' + esc(attachment.name) + '" class="max-w-[220px] max-h-40 rounded-lg border border-teal-400/40 object-cover shadow bg-black/50 cursor-pointer hover:opacity-90 transition" onclick="window.open(\'' + esc(attachment.dataUrl) + '\', \'_blank\')" title="Bấm để xem ảnh phóng to">' +
+                    '<div class="text-[10px] text-teal-200/80 mt-1 flex items-center gap-1"><i class="fa-solid fa-paperclip"></i> ' + esc(attachment.name) + ' (' + esc(attachment.size) + ')</div>' +
+                    '</div>';
+            }
+            userHtml += '<div class="text-slate-100 font-medium">' + esc(displayMessage) + '</div>';
+            user.innerHTML = userHtml;
             box.appendChild(user);
+
+            // Xóa input và xóa ảnh đính kèm sau khi gửi
             input.value = '';
+            removeChatAttachment();
             box.scrollTop = box.scrollHeight;
 
             // Hiển thị trạng thái đang suy luận
             var loading = document.createElement('div');
             loading.className = 'chat-answer flex items-center gap-2 text-teal-300';
             loading.id = 'chat-loading-spinner';
-            loading.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Trợ lý OmniFlow đang đọc và phân tích...</span>';
+            loading.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>' + (attachment ? 'Trợ lý OmniFlow đang quét hình ảnh và đọc thông tin...' : 'Trợ lý OmniFlow đang đọc và phân tích...') + '</span>';
             box.appendChild(loading);
             box.scrollTop = box.scrollHeight;
 
             try {
-                var answerHtml = await aiResponse(message);
+                var answerHtml = await aiResponse(promptForAi, attachment);
                 if (loading.parentNode) loading.parentNode.removeChild(loading);
                 var answer = document.createElement('div');
                 answer.className = 'chat-answer';
@@ -2639,7 +2872,8 @@
         }
 
         function clearChat() {
-            el('chat-msgs').innerHTML = '<div class="chat-answer">Đã xóa hội thoại. Bạn có thể tra cứu mã lô hoặc dán bài báo/tin tức để phân tích.</div>';
+            removeChatAttachment();
+            el('chat-msgs').innerHTML = '<div class="chat-answer">Đã xóa hội thoại. Bạn có thể tra cứu mã lô, dán bài báo hoặc tải/dán ảnh chứng từ B/L, AWB để phân tích.</div>';
         }
 
         function switchTab(tab) { if (tab === 'chat') setTimeout(updateGeminiUIBadge, 50); var tabs = ['dashboard', 'shipments', 'ebl', 'ai', 'alerts', 'chat']; if (!tabs.includes(tab)) return; tabs.forEach(function (id) { el('tab-' + id).classList.add('hidden'); el('tb-' + id).classList.remove('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + id).classList.add('text-slate-400', 'border-transparent') }); el('tab-' + tab).classList.remove('hidden'); el('tb-' + tab).classList.add('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + tab).classList.remove('text-slate-400', 'border-transparent'); if (tab === 'dashboard') { renderDashboard(); setTimeout(initMap, 60) } if (tab === 'shipments') renderShipTable(value('ship-filter') || 'ALL'); if (tab === 'ebl') { renderEBLTable(); renderTemplates() } if (tab === 'alerts') renderAlerts(); if (tab === 'ai' && analysisMap) setTimeout(function () { analysisMap.invalidateSize() }, 80); }
