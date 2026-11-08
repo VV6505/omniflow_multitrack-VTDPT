@@ -1824,10 +1824,17 @@
         function draftFromShipment(s) { var d = blankDraft();['bl', 'shipper', 'consignee', 'sellerEmail', 'buyerEmail', 'cargo', 'container', 'containerType', 'weight', 'volume', 'quantity', 'incoterm', 'carrier', 'vessel', 'booking', 'customsDec'].forEach(function (k) { if (s[k] != null) d[k] = s[k] }); d.docType = /Hàng Không|Hàng không/i.test(s.mode) ? 'AWB' : 'BL'; d.etaPlanned = toInputTime(s.etaPlanned); d.legs = clone(routePlanFor(s).legs).map(function (g) { var names = g.l.split('→'); return { m: g.m, fromName: names[0].trim(), toName: names.slice(1).join('→').trim(), a: g.a, b: g.b } }); return d; }
         function openShipmentForm(fromDocument) { draftShipment = blankDraft(); draftShipment.fromDocument = !!fromDocument; renderShipmentForm(); }
         function formInput(id, label, content, type) { return '<label>' + label + '<input id="' + id + '" type="' + (type || 'text') + '" ' + (type === 'number' ? 'step="any"' : '') + ' class="field" value="' + esc(content) + '" maxlength="1000"></label>'; }
+        function draftPlaceInput(index, end, label, content) {
+            var id = 'leg-' + index + '-' + (end === 'a' ? 'from' : 'to');
+            return '<label class="relative block">' + label + '<input id="' + id + '" class="field" value="' + esc(content) + '" maxlength="1000" autocomplete="off" ' +
+                'onfocus="suggestDraftPlace(' + index + ',\'' + end + '\')" oninput="suggestDraftPlace(' + index + ',\'' + end + '\')" onkeydown="handleDraftPlaceKey(event,' + index + ',\'' + end + '\')" ' +
+                'onblur="setTimeout(function(){hideDraftPlaceSuggestions(' + index + ',\'' + end + '\')},180)">' +
+                '<div id="' + id + '-suggestions" class="hidden absolute left-0 right-0 z-[260] max-h-56 overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 shadow-2xl"></div></label>';
+        }
         function renderShipmentForm() {
             var d = draftShipment;
             openDialog('Thêm Shipment — ' + nextShipmentId(shipments), '<form onsubmit="event.preventDefault();createShipment()"><div class="notice">Chỉ tạo mới, không có sửa/xóa hồ sơ. Lô mới ở trạng thái Chờ vận chuyển. Các ô cần được kiểm tra trước khi lưu.</div><div class="form-grid mt-4"><label>Loại vận đơn<select id="draft-docType" class="field"><option value="BL" ' + (d.docType === 'BL' ? 'selected' : '') + '>B/L</option><option value="AWB" ' + (d.docType === 'AWB' ? 'selected' : '') + '>AWB</option></select></label>' + formInput('draft-bl', 'Số vận đơn', d.bl) + formInput('draft-shipper', 'Người bán / Shipper *', d.shipper) + formInput('draft-consignee', 'Người mua / Consignee *', d.consignee) + formInput('draft-sellerEmail', 'Email người bán (dùng xem trước)', d.sellerEmail, 'email') + formInput('draft-buyerEmail', 'Email người mua (dùng xem trước)', d.buyerEmail, 'email') + formInput('draft-cargo', 'Tên hàng *', d.cargo) + formInput('draft-quantity', 'Quy cách / số lượng', d.quantity) + formInput('draft-container', 'Mã container / ULD', d.container) + formInput('draft-containerType', 'Loại thiết bị (40GP, 20RF, ULD…)', d.containerType) + formInput('draft-weight', 'Khối lượng (tấn)', d.weight, 'number') + formInput('draft-volume', 'Thể tích (m³)', d.volume, 'number') + formInput('draft-incoterm', 'Incoterm', d.incoterm) + formInput('draft-carrier', 'Đơn vị vận chuyển', d.carrier) + formInput('draft-vessel', 'Tàu / chuyến bay / đoàn tàu', d.vessel) + formInput('draft-booking', 'Booking', d.booking) + formInput('draft-etaPlanned', 'ETA giao hàng dự kiến', d.etaPlanned, 'datetime-local') + formInput('draft-customsDec', 'Số tờ khai (nếu đã có)', d.customsDec) +
-                '<label>Ảnh B/L / AWB (PNG, JPG, WebP)<input type="file" id="draft-bill" accept="image/png,image/jpeg,image/webp" class="field" onchange="recognizeDraftImage(this.files[0])"><span id="recognition-status" class="muted">' + esc(d.recognition || 'Nhận diện mô phỏng chỉ hoạt động với ảnh đã đăng ký mẫu; ảnh khác cần nhập thủ công.') + '</span></label><label>Tệp Excel tờ khai<input type="file" id="draft-customs" accept=".xlsx,.xls" class="field" onchange="draftShipment.customsFile=this.files[0]"></label></div><h3 class="mt-5">Các chặng vận chuyển *</h3><p class="muted">Nhập tên điểm đầu/cuối rồi bấm Tìm tọa độ. Chọn đúng kết quả để điền vĩ độ, kinh độ; bạn cũng có thể bấm bản đồ.</p><div id="draft-legs" class="mt-3 space-y-3">' + d.legs.map(renderDraftLeg).join('') + '</div><button type="button" class="secondary mt-3" onclick="addDraftLeg()">+ Thêm chặng</button><p id="draft-error" class="error-text mt-3"></p><div class="flex gap-3 mt-4"><button id="create-shipment-button" class="primary" type="submit">Kiểm tra và tạo Shipment</button><button type="button" class="secondary" onclick="previewDraftRoute()">Xem trước các điểm tuyến</button></div></form>');
+                '<label>Ảnh B/L / AWB (PNG, JPG, WebP)<input type="file" id="draft-bill" accept="image/png,image/jpeg,image/webp" class="field" onchange="recognizeDraftImage(this.files[0])"><span id="recognition-status" class="muted">' + esc(d.recognition || 'Nhận diện mô phỏng chỉ hoạt động với ảnh đã đăng ký mẫu; ảnh khác cần nhập thủ công.') + '</span></label><label>Tệp Excel tờ khai<input type="file" id="draft-customs" accept=".xlsx,.xls" class="field" onchange="draftShipment.customsFile=this.files[0]"></label></div><h3 class="mt-5">Các chặng vận chuyển *</h3><p class="muted">Gõ tên điểm đầu/cuối và chọn gợi ý phù hợp để tự điền tọa độ. Nút Tìm tọa độ vẫn cho phép chọn trên bản đồ.</p><div id="draft-legs" class="mt-3 space-y-3">' + d.legs.map(renderDraftLeg).join('') + '</div><button type="button" class="secondary mt-3" onclick="addDraftLeg()">+ Thêm chặng</button><p id="draft-error" class="error-text mt-3"></p><div class="flex gap-3 mt-4"><button id="create-shipment-button" class="primary" type="submit">Kiểm tra và tạo Shipment</button><button type="button" class="secondary" onclick="previewDraftRoute()">Xem trước các điểm tuyến</button></div></form>');
         }
         function renderDraftLeg(g, i) {
             return '<div class="panel"><div class="flex justify-between items-center"><b>Chặng ' + (i + 1) + '</b>' +
@@ -1835,11 +1842,71 @@
                 '</div><label class="block my-2">Phương thức<select id="leg-' + i + '-mode" class="field">' +
                 ['road', 'sea', 'rail', 'air', 'iww'].map(function (m) { return '<option value="' + m + '" ' + (m === g.m ? 'selected' : '') + '>' + modeLabel(m) + '</option>' }).join('') +
                 '</select></label><div class="form-grid">' +
-                formInput('leg-' + i + '-from', 'Điểm đầu *', g.fromName) + formInput('leg-' + i + '-to', 'Điểm cuối *', g.toName) +
+                draftPlaceInput(i, 'a', 'Điểm đầu *', g.fromName) + draftPlaceInput(i, 'b', 'Điểm cuối *', g.toName) +
                 formInput('leg-' + i + '-alat', 'Vĩ độ đầu *', g.a[0], 'number') + formInput('leg-' + i + '-blat', 'Vĩ độ cuối *', g.b[0], 'number') +
                 formInput('leg-' + i + '-alng', 'Kinh độ đầu *', g.a[1], 'number') + formInput('leg-' + i + '-blng', 'Kinh độ cuối *', g.b[1], 'number') +
                 '</div><div class="flex flex-wrap gap-2 mt-3"><button type="button" class="secondary" onclick="lookupDraftPlace(' + i + ',\'a\')">Tìm tọa độ điểm đầu</button>' +
                 '<button type="button" class="secondary" onclick="lookupDraftPlace(' + i + ',\'b\')">Tìm tọa độ điểm cuối</button></div></div>';
+        }
+        var draftPlaceSuggestTimer = null, draftPlaceSuggestSeq = 0, draftPlaceLastRequest = 0, draftPlaceCache = {};
+        function draftPlaceSuggestionBox(index, end) { return el('leg-' + index + '-' + (end === 'a' ? 'from' : 'to') + '-suggestions'); }
+        function hideDraftPlaceSuggestions(index, end) {
+            var box = draftPlaceSuggestionBox(index, end);
+            if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+        }
+        function selectDraftPlace(index, end, label, lat, lng) {
+            if (!validPoint([lat, lng])) return;
+            var prefix = 'leg-' + index + '-', nameId = prefix + (end === 'a' ? 'from' : 'to');
+            el(nameId).value = label;
+            el(prefix + end + 'lat').value = lat.toFixed(5);
+            el(prefix + end + 'lng').value = lng.toFixed(5);
+            hideDraftPlaceSuggestions(index, end);
+        }
+        function renderDraftPlaceSuggestions(index, end, features) {
+            var box = draftPlaceSuggestionBox(index, end); if (!box) return;
+            box.innerHTML = ''; box.classList.remove('hidden');
+            var count = 0;
+            (features || []).forEach(function (feature) {
+                var p = feature.properties || {}, coords = feature.geometry && feature.geometry.coordinates;
+                if (!coords || !validPoint([+coords[1], +coords[0]])) return;
+                var label = [p.name || p.street, p.city || p.county, p.state, p.country].filter(Boolean).filter(function (part, i, all) { return all.indexOf(part) === i; }).join(', ');
+                if (!label) return;
+                var button = document.createElement('button'); button.type = 'button';
+                button.className = 'block w-full border-b border-slate-700 px-3 py-2 text-left text-xs text-slate-100 hover:bg-slate-800 focus:bg-slate-800';
+                button.textContent = label + ' · ' + (+coords[1]).toFixed(5) + ', ' + (+coords[0]).toFixed(5);
+                button.onmousedown = function (event) { event.preventDefault(); };
+                button.onclick = function () { selectDraftPlace(index, end, label, +coords[1], +coords[0]); };
+                box.appendChild(button); count++;
+            });
+            if (!count) { var empty = document.createElement('p'); empty.className = 'px-3 py-2 text-xs text-slate-400'; empty.textContent = 'Không có gợi ý phù hợp. Thử tên đầy đủ hơn hoặc dùng bản đồ.'; box.appendChild(empty); }
+            var credit = document.createElement('p'); credit.className = 'px-3 py-1 text-[10px] text-slate-500'; credit.textContent = 'Dữ liệu: © OpenStreetMap contributors · Photon'; box.appendChild(credit);
+        }
+        function suggestDraftPlace(index, end) {
+            clearTimeout(draftPlaceSuggestTimer);
+            var seq = ++draftPlaceSuggestSeq, query = value('leg-' + index + '-' + (end === 'a' ? 'from' : 'to')).trim();
+            if (query.length < 3) { hideDraftPlaceSuggestions(index, end); return; }
+            var coords = parsePointSearch(query);
+            if (coords && validPoint(coords)) { renderDraftPlaceSuggestions(index, end, [{ properties: { name: query }, geometry: { coordinates: [coords[1], coords[0]] } }]); return; }
+            var key = query.toLocaleLowerCase('vi-VN');
+            if (draftPlaceCache[key]) { renderDraftPlaceSuggestions(index, end, draftPlaceCache[key]); return; }
+            var delay = Math.max(650, 1000 - (Date.now() - draftPlaceLastRequest));
+            draftPlaceSuggestTimer = setTimeout(async function () {
+                draftPlaceLastRequest = Date.now();
+                try {
+                    var result = await fetchJSON('https://photon.komoot.io/api/?q=' + encodeURIComponent(query) + '&limit=5', 12000);
+                    if (seq !== draftPlaceSuggestSeq) return;
+                    draftPlaceCache[key] = result.features || [];
+                    renderDraftPlaceSuggestions(index, end, draftPlaceCache[key]);
+                } catch (e) { if (seq === draftPlaceSuggestSeq) hideDraftPlaceSuggestions(index, end); }
+            }, delay);
+        }
+        function handleDraftPlaceKey(event, index, end) {
+            var box = draftPlaceSuggestionBox(index, end);
+            if (event.key === 'Escape') { hideDraftPlaceSuggestions(index, end); return; }
+            if (event.key === 'Enter' && box && !box.classList.contains('hidden')) {
+                var first = box.querySelector('button');
+                if (first) { event.preventDefault(); first.click(); }
+            }
         }
         function syncDraft() { if (!draftShipment) return;['docType', 'bl', 'shipper', 'consignee', 'sellerEmail', 'buyerEmail', 'cargo', 'quantity', 'container', 'containerType', 'weight', 'volume', 'incoterm', 'carrier', 'vessel', 'booking', 'etaPlanned', 'customsDec'].forEach(function (k) { if (el('draft-' + k)) draftShipment[k] = value('draft-' + k).trim() }); draftShipment.legs = draftShipment.legs.map(function (g, i) { return { m: value('leg-' + i + '-mode'), fromName: value('leg-' + i + '-from').trim(), toName: value('leg-' + i + '-to').trim(), a: [value('leg-' + i + '-alat'), value('leg-' + i + '-alng')], b: [value('leg-' + i + '-blat'), value('leg-' + i + '-blng')] } }); }
         function addDraftLeg() { syncDraft(); if (draftShipment.legs.length >= 12) { notify('Tối đa 12 chặng trong bản demo.'); return; } var prev = draftShipment.legs.at(-1); draftShipment.legs.push({ m: 'road', fromName: prev.toName, toName: '', a: prev.b.slice(), b: ['', ''] }); renderShipmentForm(); }
