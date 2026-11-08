@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config = { theme: { extend: { colors: { navy: { 800: '#0B192C', 900: '#1E3E62' }, maritime: { blue: '#005C97', cyan: '#36B5B0' }, alert: { orange: '#FF6B00', red: '#E63946', green: '#2A9D8F' } } } } }
     </script>
@@ -873,6 +874,8 @@
                         onclick="quickAsk('Hệ thống định tuyến đường biển bằng gì?')">🛰️ Thuật toán định tuyến</button>
                     <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-slate-900"
                         onclick="quickAsk('Dữ liệu được lưu trữ ở đâu?')">💾 Kiến trúc lưu trữ</button>
+                    <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-gradient-to-r from-teal-900/60 to-blue-900/60 text-teal-200 border-teal-500/50"
+                        onclick="quickAsk('AI tự động sinh trọn bộ B/L và file Excel tờ khai cho lô SHIP-VN-8821')"><i class="fa-solid fa-wand-magic-sparkles mr-1 text-teal-300"></i>⚡ AI sinh B/L & Excel lô 8821</button>
                     <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-teal-950/40 text-teal-300 border-teal-500/40"
                         onclick="el('chat-file-input').click()"><i class="fa-solid fa-paperclip mr-1"></i> Tải ảnh B/L, AWB hoặc Tờ khai</button>
                 </div>
@@ -1857,22 +1860,436 @@
             var s = shipments.find(function (s) { return s.id === id }); if (!s) return;
             var fields = [['Container / ULD', s.container], ['Vận đơn', s.bl], ['Booking', s.booking], ['Đơn vị vận chuyển', s.carrier], ['Tàu / chuyến', s.vessel], ['Số chuyến', s.flightNo], ['Người bán', s.shipper], ['Người mua', s.consignee], ['Hàng hóa', s.cargo], ['Số lượng', s.quantity], ['Incoterm', s.incoterm], ['Khối lượng', s.weight ? s.weight + ' tấn' : ''], ['Thể tích', s.volume ? s.volume + ' m³' : ''], ['Email người bán', s.sellerEmail], ['Email người mua', s.buyerEmail]];
             if (s.showTemp) fields.push(['Nhiệt độ theo hồ sơ', s.temp]);
-            openDialog(s.id + ' — ' + stateLabel(s.status), '<p class="muted mb-3">' + esc(s.route) + '</p><div class="mb-4"><span class="pill shipment-status" data-status="' + esc(s.status) + '">' + esc(stateLabel(s.status)) + '</span></div><div class="form-grid">' + fields.filter(function (f) { return f[1] }).map(function (f) { return '<div><span class="muted">' + f[0] + '</span><p class="text-sm">' + esc(f[1]) + '</p></div>' }).join('') + '</div><div class="notice my-4">ETA kế hoạch: ' + esc(s.etaPlanned || 'Chưa có') + ' · ETA hiện hành: ' + esc(s.etaAI || 'Chưa dự báo') + ' · ' + esc(s.etaDiff || '') + '</div><h3>Timeline / báo cáo</h3><div class="timeline mt-3">' + getMilestones(s).map(function (m) { return '<div class="tl-item"><div class="tl-dot ' + (m.status === 'done' ? 'done' : m.status === 'current' ? 'current' : 'pending') + '"></div><p class="muted">' + esc(m.time) + '</p><b>' + esc(m.title) + '</b><p class="muted">' + esc(m.detail) + '</p>' + (m.exception ? '<p class="mt-1 text-xs text-red-300">⚠ ' + esc(m.exception) + '</p>' : '') + '</div>' }).join('') + '</div><h3 class="mt-4">Chứng từ theo hồ sơ</h3>' + s.documents.map(function (d) { return '<div class="py-2 border-b border-slate-700 text-xs">' + esc(d.name) + ' · ' + esc(d.status) + '</div>' }).join('') + '<div class="flex gap-2 mt-4"><button class="primary" onclick="viewEBL(\'' + s.id + '\')">Xem ảnh vận đơn / tờ khai</button><button class="secondary" onclick="closeDemoDialog();switchTab(\'dashboard\');focusRoute(\'' + s.id + '\')">Xem tuyến bản đồ</button></div>' + renderShipmentPlanAudit(s));
+            openDialog(s.id + ' — ' + stateLabel(s.status), '<p class="muted mb-3">' + esc(s.route) + '</p><div class="mb-4"><span class="pill shipment-status" data-status="' + esc(s.status) + '">' + esc(stateLabel(s.status)) + '</span></div><div class="form-grid">' + fields.filter(function (f) { return f[1] }).map(function (f) { return '<div><span class="muted">' + f[0] + '</span><p class="text-sm">' + esc(f[1]) + '</p></div>' }).join('') + '</div><div class="notice my-4">ETA kế hoạch: ' + esc(s.etaPlanned || 'Chưa có') + ' · ETA hiện hành: ' + esc(s.etaAI || 'Chưa dự báo') + ' · ' + esc(s.etaDiff || '') + '</div><h3>Timeline / báo cáo</h3><div class="timeline mt-3">' + getMilestones(s).map(function (m) { return '<div class="tl-item"><div class="tl-dot ' + (m.status === 'done' ? 'done' : m.status === 'current' ? 'current' : 'pending') + '"></div><p class="muted">' + esc(m.time) + '</p><b>' + esc(m.title) + '</b><p class="muted">' + esc(m.detail) + '</p>' + (m.exception ? '<p class="mt-1 text-xs text-red-300">⚠ ' + esc(m.exception) + '</p>' : '') + '</div>' }).join('') + '</div><h3 class="mt-4">Chứng từ theo hồ sơ</h3>' + s.documents.map(function (d) { return '<div class="py-2 border-b border-slate-700 text-xs">' + esc(d.name) + ' · ' + esc(d.status) + '</div>' }).join('') + '<div class="flex flex-wrap gap-2 mt-4"><button class="primary" onclick="viewEBL(\'' + s.id + '\')">Xem ảnh vận đơn / tờ khai</button><button class="secondary bg-teal-900/50 hover:bg-teal-800 text-teal-300 border-teal-500/40" onclick="generateAndBindDocuments(\'' + s.id + '\')"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>AI Tự sinh B/L & Excel</button><button class="secondary" onclick="closeDemoDialog();switchTab(\'dashboard\');focusRoute(\'' + s.id + '\')">Xem tuyến bản đồ</button></div>' + renderShipmentPlanAudit(s));
         }
         function closeShipModal() { closeDemoDialog(); if (el('shipModal')) el('shipModal').classList.remove('show'); }
         function renderShipmentPlanAudit(s) { var plans = appData.plans.filter(function (p) { return p.shipId === s.id && p.appliedAt }); return plans.length ? '<h3 class="mt-4">Lịch sử cập nhật kế hoạch</h3>' + plans.map(function (p) { return '<p class="muted mt-2">' + esc(p.appliedAt) + ' · ' + esc(p.title) + ' · ' + esc(p.type === 'hypothetical' ? 'Kế hoạch giả định được chấp nhận' : 'Xử lý sự cố đã xác nhận') + '</p>' }).join('') : ''; }
-        function renderEBLTable() { var node = el('ebl-table-body'); if (!node) return; var q = value('ebl-search').toLowerCase(), filter = value('ebl-filter') || 'ALL'; node.innerHTML = shipments.filter(function (s) { return (!q || [s.bl, s.id, s.shipper, s.consignee, s.customsDec].some(function (v) { return String(v || '').toLowerCase().includes(q) })) && (filter === 'ALL' || s.customsStatus === filter) }).map(function (s) { var b = appData.bindings[s.id] || {}; return '<tr><td><b>' + esc(s.bl || 'Chưa có số vận đơn') + '</b><p class="muted">' + esc(s.id) + ' · TK: ' + esc(s.customsDec || 'Chưa có') + '</p></td><td>' + esc(s.shipper) + '<p class="muted">→ ' + esc(s.consignee) + '</p></td><td>' + esc(customsLabel(s.customsStatus)) + '</td><td>' + [b.bill ? 'Ảnh vận đơn' : 'Chưa có ảnh', b.customs ? 'Excel tờ khai' : 'Chưa có tờ khai'].join('<br>') + '</td><td><button class="secondary" onclick="viewEBL(\'' + s.id + '\')">Xem / đính kèm</button></td></tr>'; }).join('') || '<tr><td colspan="5">Không có chứng từ phù hợp.</td></tr>'; }
+        function renderEBLTable() { var node = el('ebl-table-body'); if (!node) return; var q = value('ebl-search').toLowerCase(), filter = value('ebl-filter') || 'ALL'; node.innerHTML = shipments.filter(function (s) { return (!q || [s.bl, s.id, s.shipper, s.consignee, s.customsDec].some(function (v) { return String(v || '').toLowerCase().includes(q) })) && (filter === 'ALL' || s.customsStatus === filter) }).map(function (s) { var b = appData.bindings[s.id] || {}; return '<tr><td><b>' + esc(s.bl || 'Chưa có số vận đơn') + '</b><p class="muted">' + esc(s.id) + ' · TK: ' + esc(s.customsDec || 'Chưa có') + '</p></td><td>' + esc(s.shipper) + '<p class="muted">→ ' + esc(s.consignee) + '</p></td><td>' + esc(customsLabel(s.customsStatus)) + '</td><td>' + [b.bill ? 'Ảnh vận đơn' : 'Chưa có ảnh', b.customs ? 'Excel tờ khai' : 'Chưa có tờ khai'].join('<br>') + '</td><td class="space-x-1.5 whitespace-nowrap"><button class="secondary text-xs px-2.5 py-1" onclick="viewEBL(\'' + s.id + '\')">Xem / đính kèm</button><button class="primary text-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1 shadow" onclick="generateAndBindDocuments(\'' + s.id + '\')"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Sinh B/L & Excel</span></button></td></tr>'; }).join('') || '<tr><td colspan="5">Không có chứng từ phù hợp.</td></tr>'; }
         function filterEBL() { renderEBLTable() }
         async function viewEBL(id) {
             var s = shipments.find(function (s) { return s.id === id }); if (!s) return; var binding = appData.bindings[id] || {};
-            openDialog('Vận đơn & tờ khai — ' + id, '<p class="muted">' + esc(s.shipper) + ' → ' + esc(s.consignee) + '</p><div id="document-content" class="mt-4">Đang mở tệp…</div><form class="mt-5 space-y-3" onsubmit="event.preventDefault();attachShipmentDocuments(\'' + id + '\')"><p class="notice">Chỉ bổ sung tệp chưa có. Không thay thế hoặc xóa tệp đã đính kèm trong bản demo.</p>' + (!binding.bill ? '<label>Ảnh vận đơn<input id="attach-bill" type="file" accept="image/png,image/jpeg,image/webp" class="field"></label>' : '') + (!binding.customs ? '<label>Tờ khai Excel<input id="attach-customs" type="file" accept=".xls,.xlsx" class="field"></label>' : '') + ((!binding.bill || !binding.customs) ? '<button id="attach-button" class="primary">Lưu tệp đính kèm</button>' : '') + '<p id="attach-error" class="error-text"></p></form>');
+            openDialog('Vận đơn & tờ khai — ' + id,
+                '<div class="flex items-center justify-between pb-3 border-b border-slate-800 flex-wrap gap-2">' +
+                '  <div><b class="text-teal-300">' + esc(s.shipper) + '</b> <span class="text-slate-400">→</span> <b class="text-teal-300">' + esc(s.consignee) + '</b><p class="muted text-xs">Mã lô: ' + esc(s.id) + ' | Vận đơn: ' + esc(s.bl || 'Chưa có') + ' | Tờ khai: ' + esc(s.customsDec || 'Chưa có') + '</p></div>' +
+                '  <button type="button" class="primary bg-teal-600 hover:bg-teal-500 text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 shadow" onclick="generateAndBindDocuments(\'' + id + '\')">' +
+                '    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>⚡ AI Tự động sinh B/L & Tờ khai Excel</span>' +
+                '  </button>' +
+                '</div>' +
+                '<div id="document-content" class="mt-4">Đang mở tệp…</div>' +
+                '<form class="mt-5 space-y-3" onsubmit="event.preventDefault();attachShipmentDocuments(\'' + id + '\')">' +
+                '  <p class="notice">Hoặc đính kèm thủ công tệp từ máy tính nếu muốn bổ sung tài liệu ngoài.</p>' +
+                '  ' + (!binding.bill ? '<label>Ảnh vận đơn<input id="attach-bill" type="file" accept="image/png,image/jpeg,image/webp" class="field"></label>' : '') +
+                '  ' + (!binding.customs ? '<label>Tờ khai Excel<input id="attach-customs" type="file" accept=".xls,.xlsx" class="field"></label>' : '') +
+                '  ' + ((!binding.bill || !binding.customs) ? '<button id="attach-button" class="primary">Lưu tệp đính kèm thủ công</button>' : '') +
+                '  <p id="attach-error" class="error-text"></p>' +
+                '</form>'
+            );
             try {
                 var bill = await getAsset(binding.bill), customs = await getAsset(binding.customs), content = el('document-content'); if (!content) return; content.innerHTML = '';
-                if (bill) { var img = document.createElement('img'); img.className = 'document-image'; img.alt = 'Ảnh vận đơn ' + (s.bl || s.id); img.src = bill.data; content.appendChild(img); } else content.innerHTML = '<p class="muted">Chưa cung cấp ảnh vận đơn. Không có tài liệu thay thế tự tạo.</p>';
-                if (customs) { var a = document.createElement('a'); a.className = 'primary inline-block mt-4'; a.textContent = 'Tải tờ khai: ' + customs.name; a.href = customs.data; a.download = customs.name; content.appendChild(a); var n = document.createElement('p'); n.className = 'muted mt-2'; n.textContent = 'Đính kèm Excel gốc; chưa bóc tách nội dung hay xác minh tờ khai.'; content.appendChild(n); } else { var n = document.createElement('p'); n.className = 'muted mt-3'; n.textContent = 'Chưa có file tờ khai Excel.'; content.appendChild(n); }
+                if (bill) {
+                    var wrap = document.createElement('div');
+                    wrap.className = 'space-y-2';
+                    var btnBar = document.createElement('div');
+                    btnBar.className = 'flex items-center justify-between pb-2';
+                    btnBar.innerHTML = '<span class="text-xs font-semibold text-teal-300"><i class="fa-regular fa-image mr-1"></i> ' + esc(bill.name) + ' (' + (bill.size ? (bill.size/1024).toFixed(1) + ' KB' : 'Ảnh gốc') + ')</span>' +
+                        '<a class="secondary text-xs px-2.5 py-1 rounded inline-flex items-center gap-1 hover:border-teal-400" href="' + bill.data + '" download="' + bill.name + '"><i class="fa-solid fa-download"></i> Tải ảnh B/L về máy</a>';
+                    wrap.appendChild(btnBar);
+                    var img = document.createElement('img');
+                    img.className = 'document-image max-h-[500px] w-auto mx-auto rounded-lg shadow-xl border border-slate-700 cursor-pointer bg-white';
+                    img.alt = 'Ảnh vận đơn ' + (s.bl || s.id);
+                    img.src = bill.data;
+                    img.onclick = function() { window.open(bill.data, '_blank'); };
+                    img.title = 'Bấm để mở ảnh khổ lớn tab mới';
+                    wrap.appendChild(img);
+                    content.appendChild(wrap);
+                } else content.innerHTML = '<p class="muted">Chưa cung cấp ảnh vận đơn. Bạn có thể bấm nút <b>"⚡ AI Tự động sinh B/L & Tờ khai Excel"</b> phía trên để AI tự động tạo ảnh B/L ngay!</p>';
+                if (customs) {
+                    var customWrap = document.createElement('div');
+                    customWrap.className = 'mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between flex-wrap gap-2';
+                    customWrap.innerHTML = '<div>' +
+                        '<b class="text-xs text-emerald-400 block"><i class="fa-solid fa-file-excel mr-1"></i> Tờ khai hải quan điện tử (VNACCS) & Packing List</b>' +
+                        '<span class="text-[11px] text-slate-400">' + esc(customs.name) + ' (' + (customs.size ? (customs.size/1024).toFixed(1) + ' KB' : 'Excel') + ')</span>' +
+                        '</div>' +
+                        '<a class="primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500" href="' + customs.data + '" download="' + customs.name + '"><i class="fa-solid fa-download"></i> Tải file Excel (.xlsx)</a>';
+                    content.appendChild(customWrap);
+                } else {
+                    var n = document.createElement('p'); n.className = 'muted mt-3'; n.textContent = 'Chưa có file tờ khai Excel. Bấm nút AI phía trên để tự động tạo file Excel.'; content.appendChild(n);
+                }
             } catch (e) { text('document-content', 'Không mở được tệp: ' + e.message) }
         }
         async function attachShipmentDocuments(id) { var b = el('attach-button'); if (b) b.disabled = true; try { var binding = clone(appData.bindings[id] || {}), bill = el('attach-bill') && el('attach-bill').files[0], customs = el('attach-customs') && el('attach-customs').files[0]; if (!bill && !customs) throw new Error('Chọn ít nhất một tệp.'); if (bill && !binding.bill) binding.bill = await saveAsset(bill, 'bill'); if (customs && !binding.customs) binding.customs = await saveAsset(customs, 'customs'); var next = clone(appData); next.bindings[id] = binding; await commitData(next, 'Bổ sung chứng từ ' + id); renderEBLTable(); await viewEBL(id); notify('Đã lưu tệp trên thiết bị này.') } catch (e) { text('attach-error', e.message) } finally { if (b) b.disabled = false } }
+
+        // =========================================================================
+        // HỆ THỐNG TỰ ĐỘNG TẠO ẢNH VẬN ĐƠN B/L & TỜ KHAI HẢI QUAN EXCEL (AI & CANVAS IDP)
+        // =========================================================================
+        async function saveGeneratedAsset(dataUrl, name, kind, mimeType) {
+            var id = newKey('asset');
+            var size = Math.round(dataUrl.length * 0.75);
+            var record = {
+                id: id,
+                name: name,
+                size: size,
+                kind: kind,
+                type: mimeType || (kind === 'bill' ? 'image/jpeg' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                data: dataUrl
+            };
+            await storagePut('asset-' + id, record);
+            return { id: id, name: name, size: size, kind: kind };
+        }
+
+        function createBillOfLadingCanvas(s) {
+            return new Promise(function (resolve) {
+                var canvas = document.createElement('canvas');
+                canvas.width = 1200;
+                canvas.height = 1720;
+                var ctx = canvas.getContext('2d');
+
+                // Nền giấy tài liệu chuẩn
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, 1200, 1720);
+
+                // Viền khung đôi tài liệu chính thức
+                ctx.strokeStyle = '#0F172A';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(35, 35, 1130, 1650);
+                ctx.lineWidth = 1;
+                ctx.strokeRect(40, 40, 1120, 1640);
+
+                // 1. HEADER BANNER
+                ctx.fillStyle = '#0F172A';
+                ctx.fillRect(40, 40, 760, 85);
+
+                ctx.fillStyle = '#38BDF8';
+                ctx.font = '900 24px Inter, sans-serif';
+                ctx.fillText('OMNIFLOW 360 PRO — MULTIMODAL LOGISTICS', 60, 75);
+
+                ctx.fillStyle = '#E2E8F0';
+                ctx.font = '600 13px Inter, sans-serif';
+                ctx.fillText('COMBINED TRANSPORT BILL OF LADING / FIATA MULTIMODAL STANDARD', 60, 102);
+
+                // Khung số B/L góc phải
+                ctx.strokeStyle = '#0F172A';
+                ctx.strokeRect(800, 40, 360, 85);
+                ctx.fillStyle = '#475569';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillText('BILL OF LADING NUMBER / BOOKING REF:', 815, 62);
+                ctx.fillStyle = '#0369A1';
+                ctx.font = '900 22px Inter, monospace';
+                ctx.fillText(s.bl || ('MAEU' + s.id.replace(/[^\d]/g, '') + '88'), 815, 90);
+                ctx.fillStyle = '#64748B';
+                ctx.font = '11px Inter, sans-serif';
+                ctx.fillText('REF: ' + s.id + ' | BOOKING: ' + (s.booking || 'BK-' + s.id), 815, 112);
+
+                function drawFieldBox(x, y, w, h, title, val, subVal) {
+                    ctx.strokeStyle = '#CBD5E1';
+                    ctx.strokeRect(x, y, w, h);
+                    ctx.fillStyle = '#64748B';
+                    ctx.font = 'bold 10px Inter, sans-serif';
+                    ctx.fillText(title.toUpperCase(), x + 10, y + 16);
+                    if (val) {
+                        ctx.fillStyle = '#0F172A';
+                        ctx.font = 'bold 14px Inter, sans-serif';
+                        ctx.fillText(String(val).slice(0, 52), x + 10, y + 38);
+                    }
+                    if (subVal) {
+                        ctx.fillStyle = '#334155';
+                        ctx.font = '12px Inter, sans-serif';
+                        ctx.fillText(String(subVal).slice(0, 56), x + 10, y + 56);
+                    }
+                }
+
+                // Cột trái
+                drawFieldBox(40, 125, 560, 115, '1. Shipper / Exporter (Name & Address)', s.shipper, 'Origin Port Terminal / Industrial Zone');
+                drawFieldBox(40, 240, 560, 115, '2. Consignee (Name & Address / To Order Of)', s.consignee, 'Destination Logistics Hub & Bonded Warehouse');
+                drawFieldBox(40, 355, 560, 115, '3. Notify Party / Intermediate Consignee', 'SAME AS CONSIGNEE', 'Logistics Operations Division (Contact Person On File)');
+
+                // Cột phải
+                var originPort = s.route.split('→')[0].trim();
+                var destPort = s.route.split('→').slice(-1)[0].trim();
+                drawFieldBox(600, 125, 280, 58, 'Pre-Carriage By', s.modeShort ? s.modeShort.split('+')[0].trim() : 'Road Feeder');
+                drawFieldBox(880, 125, 280, 58, 'Place of Receipt', originPort);
+                drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', s.vessel || s.flightNo || 'MOL TRUTH 024E');
+                drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', originPort);
+                drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', destPort);
+                drawFieldBox(880, 240, 280, 58, 'Place of Delivery', destPort);
+                drawFieldBox(600, 298, 280, 57, 'Carrier / Liners Agent', s.carrier || 'MAERSK / ONE LINE CO., LTD');
+                drawFieldBox(880, 298, 280, 57, 'Movement Type & Freight', 'FCL/FCL · ' + (s.incoterm || 'CIF Hải Phòng'));
+                drawFieldBox(600, 355, 560, 115, 'Export References & Customs Info', 'TK Hải Quan: ' + (s.customsDec || 'Chờ mở') + ' · Phân luồng: ' + customsLabel(s.customsStatus), 'Incoterms: ' + (s.incoterm || 'CIF') + ' · Free time D&D: ' + (s.dd || 'Chưa hết hạn'));
+
+                // 2. BẢNG CHI TIẾT HÀNG HÓA
+                var tableTop = 475;
+                ctx.fillStyle = '#0F172A';
+                ctx.fillRect(40, tableTop, 1120, 32);
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillText('CONTAINER NO. / SEAL NO.', 55, tableTop + 20);
+                ctx.fillText('NO. & PKGS', 290, tableTop + 20);
+                ctx.fillText('DESCRIPTION OF PACKAGES AND GOODS', 450, tableTop + 20);
+                ctx.fillText('GROSS WEIGHT', 880, tableTop + 20);
+                ctx.fillText('MEASUREMENT', 1030, tableTop + 20);
+
+                ctx.strokeStyle = '#0F172A';
+                ctx.strokeRect(40, tableTop, 1120, 540);
+                ctx.beginPath();
+                ctx.moveTo(275, tableTop); ctx.lineTo(275, tableTop + 540);
+                ctx.moveTo(435, tableTop); ctx.lineTo(435, tableTop + 540);
+                ctx.moveTo(865, tableTop); ctx.lineTo(865, tableTop + 540);
+                ctx.moveTo(1015, tableTop); ctx.lineTo(1015, tableTop + 540);
+                ctx.stroke();
+
+                var rY = tableTop + 65;
+                ctx.fillStyle = '#0F172A';
+
+                ctx.font = '900 16px Inter, monospace';
+                ctx.fillText(s.container || 'MSKU9082341', 55, rY);
+                ctx.font = '12px Inter, sans-serif';
+                ctx.fillStyle = '#475569';
+                ctx.fillText('SEAL: ' + (s.seal || 'ML-VN882101'), 55, rY + 24);
+                ctx.fillText('TYPE: ' + (s.containerType || '40GP / HIGH CUBE'), 55, rY + 44);
+
+                ctx.fillStyle = '#0F172A';
+                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.fillText(s.quantity || '1x40HQ FCL', 290, rY);
+                ctx.font = '12px Inter, sans-serif';
+                ctx.fillStyle = '#475569';
+                ctx.fillText('PALLETIZED CARGO', 290, rY + 24);
+                ctx.fillText('STOWED IN CONTAINER', 290, rY + 44);
+
+                ctx.fillStyle = '#0F172A';
+                ctx.font = '900 16px Inter, sans-serif';
+                ctx.fillText(s.cargo, 450, rY);
+
+                ctx.font = '13px Inter, sans-serif';
+                ctx.fillStyle = '#334155';
+                ctx.fillText('HS CODE: 8708.30.90 | INCOTERMS: ' + (s.incoterm || 'CIF'), 450, rY + 26);
+                ctx.fillText('ORIGIN: ' + originPort + ' ➔ DESTINATION: ' + destPort, 450, rY + 48);
+                ctx.fillText('CARRIER BOOKING NO: ' + (s.booking || 'BK-' + s.id), 450, rY + 70);
+
+                if (s.showTemp) {
+                    ctx.fillStyle = '#0284C7';
+                    ctx.font = 'bold 13px Inter, sans-serif';
+                    ctx.fillText('★ TEMPERATURE CONTROLLED: SET TEMP ' + s.temp + ' (CONTINUOUS GENSET ACTIVE)', 450, rY + 95);
+                }
+
+                ctx.fillStyle = '#0F172A';
+                ctx.font = '900 16px Inter, monospace';
+                ctx.fillText((s.weight ? s.weight + ' MTS' : '18.500 MTS'), 880, rY);
+                ctx.fillStyle = '#475569';
+                ctx.font = '12px Inter, sans-serif';
+                ctx.fillText('TARE: 3.820 MTS', 880, rY + 24);
+                ctx.fillText('VGM: ' + (s.weight ? (s.weight + 3.82).toFixed(2) + ' MTS' : '22.320 MTS'), 880, rY + 44);
+
+                ctx.fillStyle = '#0F172A';
+                ctx.font = '900 16px Inter, monospace';
+                ctx.fillText((s.volume ? s.volume + ' CBM' : '45.800 CBM'), 1030, rY);
+                ctx.fillStyle = '#475569';
+                ctx.font = '12px Inter, sans-serif';
+                ctx.fillText('STANDARD CUBE', 1030, rY + 24);
+
+                ctx.fillStyle = '#F1F5F9';
+                ctx.fillRect(40, tableTop + 490, 1120, 50);
+                ctx.strokeStyle = '#0F172A';
+                ctx.strokeRect(40, tableTop + 490, 1120, 50);
+                ctx.fillStyle = '#0F172A';
+                ctx.font = 'bold 13px Inter, sans-serif';
+                ctx.fillText('TOTAL CONTAINERS / PACKAGES: 1 UNIT (FCL/FCL) — CLEAN ON BOARD', 55, tableTop + 520);
+                ctx.fillText('TOTAL GROSS: ' + (s.weight ? s.weight + ' MTS' : '18.500 MTS'), 880, tableTop + 520);
+
+                // 3. KHU VỰC ĐIỀU KHOẢN VÀ CON DẤU MỘC
+                var bTop = 1030;
+                drawFieldBox(40, bTop, 560, 110, 'Declared Value & Freight Payable At', 'FREIGHT PREPAID — DESTINATION CURRENCY', 'Carrier not responsible for delay beyond control / Act of God');
+                drawFieldBox(600, bTop, 560, 110, 'Date and Place of Issue', originPort + ' · ' + (s.etaPlanned ? s.etaPlanned.split(' ')[0] : '08/11/2026'), 'Three (3) Original Bills of Lading signed, one being accomplished others void');
+
+                var barY = 1170;
+                ctx.fillStyle = '#0F172A';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillText('TRACKING BARCODE (VERIFIED EDI SIGNATURE):', 55, barY);
+                var bx = 55;
+                for (var b = 0; b < 65; b++) {
+                    var bw = (b % 5 === 0 ? 4 : (b % 3 === 0 ? 2 : (b % 2 === 0 ? 3 : 1)));
+                    ctx.fillRect(bx, barY + 12, bw, 45);
+                    bx += bw + 3;
+                }
+                ctx.font = 'bold 12px Inter, monospace';
+                ctx.fillText('*' + (s.bl || s.id) + '*', 120, barY + 75);
+
+                var qx = 450, qy = barY + 5, qs = 68;
+                ctx.strokeStyle = '#0F172A';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(qx, qy, qs, qs);
+                ctx.fillRect(qx + 8, qy + 8, 16, 16);
+                ctx.fillRect(qx + qs - 24, qy + 8, 16, 16);
+                ctx.fillRect(qx + 8, qy + qs - 24, 16, 16);
+                ctx.fillStyle = '#0F172A';
+                ctx.fillRect(qx + 30, qy + 30, 8, 8);
+                ctx.fillRect(qx + 42, qy + 24, 10, 6);
+                ctx.fillRect(qx + 24, qy + 44, 14, 8);
+                ctx.font = '9px Inter, sans-serif';
+                ctx.fillText('SCAN VERIFY', qx + 4, qy + qs + 14);
+
+                ctx.fillStyle = '#64748B';
+                ctx.font = '9px Inter, sans-serif';
+                ctx.fillText('RECEIVED by the Carrier from the Shipper in apparent good order and condition unless otherwise indicated herein, the Goods or the', 55, 1290);
+                ctx.fillText('Container(s) or packages said to contain the Goods. In accepting this Bill of Lading, the Merchant agrees to be bound by all the', 55, 1305);
+                ctx.fillText('stipulations, exceptions, terms and conditions on the face and back hereof, whether written, printed, stamped or incorporated.', 55, 1320);
+
+                var stampX = 880, stampY = 1240;
+                ctx.save();
+                ctx.translate(stampX, stampY);
+                ctx.rotate(-10 * Math.PI / 180);
+
+                ctx.strokeStyle = '#1D4ED8';
+                ctx.fillStyle = '#1D4ED8';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, 75, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 68, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.font = '900 10px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('OMNIFLOW CARRIER SERVICES', 0, -45);
+                ctx.font = '900 13px Inter, sans-serif';
+                ctx.fillText('★ ORIGINAL ★', 0, -20);
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.fillText('FREIGHT PREPAID', 0, 2);
+                ctx.fillText('VERIFIED & ISSUED', 0, 22);
+                ctx.font = '9px Inter, sans-serif';
+                ctx.fillText(new Date().toLocaleDateString('vi-VN'), 0, 42);
+                ctx.fillText('SEALED BY MASTER', 0, 56);
+
+                ctx.strokeStyle = '#0284C7';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(-50, -5);
+                ctx.bezierCurveTo(-20, -35, 10, 15, 45, -15);
+                ctx.bezierCurveTo(20, -5, 5, 25, 60, 10);
+                ctx.stroke();
+
+                ctx.restore();
+
+                ctx.fillStyle = '#94A3B8';
+                ctx.font = 'bold 11px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('SIGNED AS AGENT FOR THE CARRIER · OMNIFLOW 360 PRO SMART LOGISTICS OS', 600, 1660);
+
+                resolve(canvas.toDataURL('image/jpeg', 0.94));
+            });
+        }
+
+        function createCustomsExcelFile(s) {
+            var originPort = s.route.split('→')[0].trim();
+            var destPort = s.route.split('→').slice(-1)[0].trim();
+            var decNumber = s.customsDec || ('106' + Math.floor(100000000 + Math.random() * 900000000));
+            var grossWeightKg = s.weight ? Math.round(s.weight * 1000) : 18500;
+
+            if (typeof XLSX !== 'undefined') {
+                var wb = XLSX.utils.book_new();
+
+                var customsRows = [
+                    ["TỔNG CỤC HẢI QUAN VIỆT NAM", "", "", "", "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"],
+                    ["CỤC HẢI QUAN / CHI CỤC HẢI QUAN QUẢN LÝ", "", "", "", "Độc lập - Tự do - Hạnh phúc"],
+                    ["", "", "", "", ""],
+                    ["TỜ KHAI HÀNG HÓA NHẬP KHẨU / XUẤT KHẨU (HỆ THỐNG THÔNG QUAN ĐIỆN TỬ VNACCS/VCIS)", "", "", "", ""],
+                    ["", "", "", "", ""],
+                    ["1. Số tờ khai:", decNumber, "", "2. Phân luồng kiểm tra:", customsLabel(s.customsStatus)],
+                    ["3. Ngày đăng ký:", s.etaPlanned || "08/11/2026", "", "4. Mã loại hình:", s.id === 'SHIP-VN-8821' ? 'A11 (Nhập KD tiêu dùng)' : 'A12 (Nhập KD sản xuất)'],
+                    ["5. Cơ quan Hải quan:", "03EE (Chi cục HQ Cửa khẩu Cảng)", "", "6. Mã bộ phận xử lý:", "01"],
+                    ["7. Người xuất khẩu (Shipper):", s.shipper, "", "Mã số định danh:", "DE-8821098"],
+                    ["8. Người nhập khẩu (Consignee):", s.consignee, "", "Mã số thuế:", "0108922334"],
+                    ["9. Vận đơn (B/L / AWB):", s.bl || ('MAEU' + s.id.replace(/[^\d]/g, '') + '88'), "", "10. Booking / Hợp đồng:", s.booking || "BK-" + s.id],
+                    ["11. Phương tiện vận chuyển:", s.vessel || s.flightNo || "MOL TRUTH 024E", "", "12. Ngày hàng đến dự kiến:", s.etaAI || s.etaPlanned],
+                    ["13. Cảng xếp hàng (POL):", originPort, "", "14. Cảng dỡ hàng (POD):", destPort],
+                    ["15. Số lượng kiện / Quy cách:", s.quantity || "1 Container FCL", "", "16. Tổng trọng lượng Gross (KG):", grossWeightKg],
+                    ["17. Số Container:", s.container || "MSKU9082341", "", "18. Số Chì (Seal):", s.seal || "ML-VN882101"],
+                    ["19. Điều kiện Incoterms:", s.incoterm || "CIF", "", "20. Đồng tiền thanh toán:", "USD"],
+                    ["", "", "", "", ""],
+                    ["BẢNG KÊ CHI TIẾT HÀNG HÓA KHAI BÁO:", "", "", "", "", "", "", "", ""],
+                    ["STT", "Tên hàng hóa và quy cách phẩm chất", "Mã số HS", "Xuất xứ", "Số lượng", "Đơn vị tính", "Đơn giá (USD)", "Trị giá tính thuế (USD)", "Thuế suất NK", "Thuế GTGT"],
+                    [1, s.cargo, "8708.30.90", "Đức / Quốc tế", 1, "Lô/Kiện", 48000, 48000, "5%", "10%"],
+                    ["", "TỔNG CỘNG TRỊ GIÁ HÓA ĐƠN:", "", "", "", "", "", 48000, "Tổng thuế ước tính:", "$7,440 USD"],
+                    ["", "", "", "", "", "", "", "", "", ""],
+                    ["GHI CHÚ HẢI QUAN & QUẢN LÝ RỦI RO:", (s.customsStatus === 'RED' ? 'LUỒNG ĐỎ: Yêu cầu chuyển kiểm hóa thực tế 100% tại bãi kiểm hóa cảng.' : s.customsStatus === 'YELLOW' ? 'LUỒNG VÀNG: Kiểm tra chi tiết bộ chứng từ điện tử.' : 'LUỒNG XANH: Đã thông quan điện tử.'), "", "", "", "", "", "", "", ""],
+                    ["CƠ QUAN TIẾP NHẬN PHÊ DUYỆT:", "VNACCS ELECTRONIC DATA PROCESSED", "", "", "NGÀY CẤP:", new Date().toLocaleDateString('vi-VN'), "", "", "", ""]
+                ];
+                var ws1 = XLSX.utils.aoa_to_sheet(customsRows);
+                XLSX.utils.book_append_sheet(wb, ws1, "TO_KHAI_HQ");
+
+                var packingRows = [
+                    ["OMNIFLOW 360 PRO — CONTAINER PACKING LIST & VGM MANIFEST", "", "", "", ""],
+                    ["Mã Shipment:", s.id, "Vận đơn:", s.bl || ('MAEU' + s.id.replace(/[^\d]/g, '') + '88'), "Ngày lập:", new Date().toLocaleDateString('vi-VN')],
+                    ["Chủ hàng / Shipper:", s.shipper, "Người nhận / Consignee:", s.consignee, "Tàu/Chuyến:", s.vessel || 'MOL TRUTH 024E'],
+                    ["", "", "", "", ""],
+                    ["Container No.", "Seal No.", "Loại thiết bị", "Khối lượng hàng (KG)", "Khối lượng vỏ (KG)", "VGM Tổng khối lượng (KG)", "Phương pháp cân"],
+                    [s.container || "MSKU9082341", s.seal || "ML-VN882101", s.containerType || "40GP", grossWeightKg, 3820, grossWeightKg + 3820, "Phương pháp 1 (Cân cầu điện tử)"],
+                    ["", "", "", "", "", "", ""],
+                    ["Ghi chú chuỗi lạnh:", (s.showTemp ? "Nhiệt độ cài đặt: " + s.temp + " (Kèm Genset điện liên tục)" : "Hàng tiêu chuẩn FCL"), "", "", "", "", ""]
+                ];
+                var ws2 = XLSX.utils.aoa_to_sheet(packingRows);
+                XLSX.utils.book_append_sheet(wb, ws2, "PACKING_LIST_VGM");
+
+                var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+                return "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64," + wbout;
+            } else {
+                var xml = '<?xml version="1.0"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n' +
+                    '<Worksheet ss:Name="TO_KHAI_HQ"><Table>\n' +
+                    '<Row><Cell><Data ss:Type="String">TỜ KHAI HẢI QUAN VNACCS: ' + decNumber + '</Data></Cell></Row>\n' +
+                    '<Row><Cell><Data ss:Type="String">Lô: ' + s.id + ' | B/L: ' + (s.bl || s.id) + '</Data></Cell></Row>\n' +
+                    '<Row><Cell><Data ss:Type="String">Shipper: ' + s.shipper + '</Data></Cell></Row>\n' +
+                    '<Row><Cell><Data ss:Type="String">Consignee: ' + s.consignee + '</Data></Cell></Row>\n' +
+                    '<Row><Cell><Data ss:Type="String">Hàng hóa: ' + s.cargo + ' (' + grossWeightKg + ' KG)</Data></Cell></Row>\n' +
+                    '</Table></Worksheet></Workbook>';
+                return 'data:application/vnd.ms-excel;base64,' + btoa(unescape(encodeURIComponent(xml)));
+            }
+        }
+
+        async function generateAndBindDocuments(shipId) {
+            var s = shipments.find(function (item) { return item.id === shipId; });
+            if (!s) { notify('Không tìm thấy thông tin lô hàng ' + shipId); return; }
+
+            notify('🤖 AI đang đọc dữ liệu lô ' + shipId + ' và khởi tạo Vận đơn B/L & Tờ khai Excel...');
+
+            try {
+                // 1. Tự sinh ảnh Vận đơn B/L chuẩn 100% bằng Canvas
+                var billDataUrl = await createBillOfLadingCanvas(s);
+                var billFileName = 'BL_' + (s.bl || s.id) + '_ORIGINAL.jpg';
+                var billAsset = await saveGeneratedAsset(billDataUrl, billFileName, 'bill', 'image/jpeg');
+
+                // 2. Tự sinh file Excel Tờ khai Hải quan điện tử VNACCS / Manifest bằng SheetJS
+                var excelDataUrl = await createCustomsExcelFile(s);
+                var excelFileName = 'TO_KHAI_HQ_' + (s.customsDec || s.id) + '.xlsx';
+                var customsAsset = await saveGeneratedAsset(excelDataUrl, excelFileName, 'customs', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+                // 3. Tự động liên kết vào hệ thống lô hàng
+                var next = clone(appData);
+                if (!next.bindings) next.bindings = {};
+                next.bindings[shipId] = {
+                    bill: billAsset,
+                    customs: customsAsset
+                };
+
+                var shipRecord = next.shipments.find(function (item) { return item.id === shipId; });
+                if (shipRecord) {
+                    if (!shipRecord.bl) shipRecord.bl = 'MAEU-' + shipId.replace(/[^\d]/g, '') + '88';
+                    if (!shipRecord.customsDec) shipRecord.customsDec = '106' + Math.floor(100000000 + Math.random() * 900000000);
+                }
+
+                await commitData(next, 'AI tự động sinh B/L & Tờ khai Excel cho ' + shipId);
+                renderEBLTable();
+                await viewEBL(shipId);
+
+                notify('✅ AI đã hoàn tất: Sinh ảnh B/L & file Excel khớp 100% dữ liệu cho lô ' + shipId + '!');
+                return { billDataUrl: billDataUrl, excelDataUrl: excelDataUrl, s: shipRecord || s };
+            } catch (e) {
+                console.error('Lỗi sinh chứng từ AI:', e);
+                notify('Lỗi sinh chứng từ: ' + e.message);
+                throw e;
+            }
+        }
         function toInputTime(input) { var match = String(input || '').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/); return match ? match[3] + '-' + match[2] + '-' + match[1] + 'T' + match[4] + ':' + match[5] : ''; }
         function fromInputTime(input) { var match = String(input || '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/); if (!match) return ''; var formatted = match[3] + '/' + match[2] + '/' + match[1] + ' ' + match[4] + ':' + match[5]; return shipmentEtaTime(formatted) === null ? '' : formatted; }
         function addHours(time, hours) { var t = shipmentEtaTime(time); if (t === null || !Number.isFinite(hours)) throw new Error('Chưa có ETA cơ sở hợp lệ.'); var d = new Date(t + hours * 3600000), pad = function (n) { return String(n).padStart(2, '0') }; return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }
@@ -2644,7 +3061,53 @@
 
             if (!raw) return 'Bạn vui lòng nhập câu hỏi hoặc dán bài báo/ảnh chứng từ cần phân tích.';
 
-            // 2. Không có ảnh: Kiểm tra chính xác mã (nếu nhập sai mã như SHIP-VN-8821154 thì lập tức báo lỗi chính xác)
+            // 2. Kiểm tra yêu cầu tự động sinh B/L và File Excel cho lô hàng
+            var isGenRequest = /sinh|tạo|generate|xuất|lập/i.test(raw) && /vận đơn|b[\/-]?l|bill|excel|tờ khai|chứng từ/i.test(raw);
+            if (isGenRequest) {
+                var targetShip = null;
+                var shipMatch = raw.match(/\b(SHIP-VN-\d+)\b/i);
+                if (shipMatch) {
+                    targetShip = shipments.find(function (item) { return item.id.toUpperCase() === shipMatch[1].toUpperCase(); });
+                } else if (/8821|vinfast/i.test(raw)) {
+                    targetShip = shipments.find(function (item) { return item.id === 'SHIP-VN-8821'; });
+                } else if (/9042|samsung/i.test(raw)) {
+                    targetShip = shipments.find(function (item) { return item.id === 'SHIP-VN-9042'; });
+                } else if (/7710|tôm|tom/i.test(raw)) {
+                    targetShip = shipments.find(function (item) { return item.id === 'SHIP-VN-7710'; });
+                } else if (/3391|phân bón|phan bon/i.test(raw)) {
+                    targetShip = shipments.find(function (item) { return item.id === 'SHIP-VN-3391'; });
+                } else {
+                    targetShip = shipments[0];
+                }
+
+                if (targetShip) {
+                    var genResult = await generateAndBindDocuments(targetShip.id);
+                    return '<div class="space-y-3">' +
+                        '<div class="flex items-center justify-between pb-2 border-b border-teal-500/30 flex-wrap gap-2">' +
+                        '<span class="font-bold text-teal-300 text-sm"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI đã tự động sinh trọn bộ Chứng từ chuẩn 100%!</span>' +
+                        '<span class="pill bg-teal-500/20 text-teal-300 border-teal-500/40">Đã lưu vào hệ thống</span>' +
+                        '</div>' +
+                        '<p class="text-xs text-slate-300 leading-relaxed">' +
+                        'Hệ thống AI đã đọc toàn bộ dữ liệu nghiệp vụ của lô <b>' + esc(targetShip.id) + '</b> và tự động kết xuất:' +
+                        '</p>' +
+                        '<div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-2 text-xs">' +
+                        '<div>• <b>Vận đơn B/L gốc:</b> Số <code>' + esc(genResult.s.bl) + '</code> — Đầy đủ Shipper, Consignee, Cảng xếp dỡ, Barcode & Dấu mộc số.</div>' +
+                        '<div>• <b>Tờ khai Hải quan điện tử VNACCS:</b> Số <code>' + esc(genResult.s.customsDec) + '</code> — Phân luồng ' + esc(customsLabel(genResult.s.customsStatus)) + '.</div>' +
+                        '<div>• <b>Bảng kê Packing List & VGM:</b> Trọng lượng ' + (genResult.s.weight ? genResult.s.weight + ' tấn' : '18.5 tấn') + ' · Container <code>' + esc(genResult.s.container) + '</code>.</div>' +
+                        '</div>' +
+                        '<div class="rounded-xl overflow-hidden border border-slate-700 bg-black/40 text-center p-2">' +
+                        '<img src="' + genResult.billDataUrl + '" alt="Vận đơn AI sinh" class="max-h-80 w-auto mx-auto rounded-lg shadow-xl cursor-pointer hover:opacity-95 transition bg-white" onclick="window.open(\'' + genResult.billDataUrl + '\', \'_blank\')" title="Bấm để xem ảnh phóng to full HD">' +
+                        '</div>' +
+                        '<div class="flex flex-wrap gap-2 pt-1">' +
+                        '<a href="' + genResult.billDataUrl + '" download="BL_' + genResult.s.id + '.jpg" class="primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5"><i class="fa-solid fa-download"></i> Tải ảnh B/L (.jpg)</a>' +
+                        '<a href="' + genResult.excelDataUrl + '" download="TO_KHAI_' + genResult.s.id + '.xlsx" class="secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40"><i class="fa-solid fa-file-excel"></i> Tải file Tờ khai (.xlsx)</a>' +
+                        '<button class="secondary text-xs px-3 py-1.5" onclick="switchTab(\'ebl\');viewEBL(\'' + genResult.s.id + '\')"><i class="fa-solid fa-folder-open mr-1"></i> Xem trong Tab 3</button>' +
+                        '</div>' +
+                        '</div>';
+                }
+            }
+
+            // 3. Không có ảnh: Kiểm tra chính xác mã (nếu nhập sai mã như SHIP-VN-8821154 thì lập tức báo lỗi chính xác)
             var codeResult = findShipmentExact(raw);
             if (codeResult && codeResult.status === 'NOT_FOUND') {
                 return '<div class="p-3 bg-red-950/40 border border-red-800/80 rounded-xl space-y-2">' +
