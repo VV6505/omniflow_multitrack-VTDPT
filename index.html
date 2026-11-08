@@ -1701,6 +1701,12 @@
         function mergeBundledDocuments(data) {
             var next = clone(data), defaults = BUNDLED_DOCUMENTS.bindings;
             next.shipments.forEach(function (s) { var supplied = defaults[s.id]; if (!supplied) return; var binding = next.bindings[s.id] || (next.bindings[s.id] = {});['bill', 'customs'].forEach(function (kind) { if (!binding[kind] && supplied[kind]) binding[kind] = clone(supplied[kind]); }); });
+            var original3391 = next.shipments.find(function (s) { return s.id === 'SHIP-VN-3391'; });
+            if (original3391) {
+                // Các trường này được chép từ ảnh B/L mẫu đã nhúng, kể cả hồ sơ đã lưu từ phiên trước.
+                var sourceFields = { weight: 28.4, volume: 38.166, shipperAddress: '28 Fuxingmennei Street, Xicheng District, Beijing, China', consigneeAddress: 'Khu Công Nghiệp Đức Hòa 3, Xã Đức Lập, Tỉnh Tây Ninh, Việt Nam', notifyParty: 'CÔNG TY CỔ PHẦN HOÁ CHẤT AGRILAS VIỆT NAM', notifyAddress: 'Khu Công Nghiệp Đức Hòa 3, Xã Đức Lập, Tỉnh Tây Ninh, Việt Nam' };
+                Object.keys(sourceFields).forEach(function (key) { if (original3391[key] == null || original3391[key] === '') original3391[key] = sourceFields[key]; });
+            }
             return next;
         }
         function seedState() {
@@ -1898,7 +1904,16 @@
                     img.className = 'document-image max-h-[500px] w-auto mx-auto rounded-lg shadow-xl border border-slate-700 cursor-pointer bg-white';
                     img.alt = 'Ảnh vận đơn ' + (s.bl || s.id);
                     img.src = bill.data;
-                    img.onclick = function() { window.open(bill.data, '_blank'); };
+                    img.onclick = function() {
+                        // Browsers can block top-level navigation to large data: URLs.
+                        var parts = bill.data.match(/^data:([^;,]+)?;base64,(.*)$/s);
+                        if (!parts) { window.open(bill.data, '_blank'); return; }
+                        var binary = atob(parts[2]), bytes = new Uint8Array(binary.length);
+                        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        var url = URL.createObjectURL(new Blob([bytes], { type: parts[1] || bill.type || 'image/jpeg' }));
+                        documentURLs.push(url);
+                        window.open(url, '_blank', 'noopener');
+                    };
                     img.title = 'Bấm để mở ảnh khổ lớn tab mới';
                     wrap.appendChild(img);
                     content.appendChild(wrap);
@@ -1980,37 +1995,72 @@
                 ctx.font = '11px Inter, sans-serif';
                 ctx.fillText('REF: ' + s.id + ' | BOOKING: ' + (s.booking || 'BK-' + s.id), 815, 112);
 
+                function fitText(value, x, y, maxWidth) {
+                    var str = String(value == null ? '' : value);
+                    if (ctx.measureText(str).width <= maxWidth) { ctx.fillText(str, x, y); return; }
+                    while (str.length && ctx.measureText(str + '…').width > maxWidth) str = str.slice(0, -1);
+                    ctx.fillText(str + '…', x, y);
+                }
+                function wrapText(value, x, y, maxWidth, lineHeight) {
+                    var words = String(value == null ? '' : value).split(/\s+/), line = '';
+                    words.forEach(function (word) {
+                        var candidate = line ? line + ' ' + word : word;
+                        if (line && ctx.measureText(candidate).width > maxWidth) {
+                            ctx.fillText(line, x, y);
+                            y += lineHeight;
+                            line = word;
+                        } else line = candidate;
+                        while (ctx.measureText(line).width > maxWidth && line.length > 1) {
+                            var chunk = line;
+                            while (chunk.length > 1 && ctx.measureText(chunk).width > maxWidth) chunk = chunk.slice(0, -1);
+                            ctx.fillText(chunk, x, y);
+                            y += lineHeight;
+                            line = line.slice(chunk.length);
+                        }
+                    });
+                    if (line) { ctx.fillText(line, x, y); y += lineHeight; }
+                    return y;
+                }
                 function drawFieldBox(x, y, w, h, title, val, subVal) {
                     ctx.strokeStyle = '#CBD5E1';
                     ctx.strokeRect(x, y, w, h);
                     ctx.fillStyle = '#64748B';
                     ctx.font = 'bold 10px Inter, sans-serif';
                     ctx.fillText(title.toUpperCase(), x + 10, y + 16);
+                    var nextY = y + 38;
                     if (val) {
                         ctx.fillStyle = '#0F172A';
-                        ctx.font = 'bold 14px Inter, sans-serif';
-                        ctx.fillText(String(val).slice(0, 52), x + 10, y + 38);
+                        ctx.font = h < 70 ? 'bold 12px Inter, sans-serif' : 'bold 14px Inter, sans-serif';
+                        nextY = wrapText(val, x + 10, y + (h < 70 ? 35 : 38), w - 20, h < 70 ? 14 : 18);
                     }
                     if (subVal) {
                         ctx.fillStyle = '#334155';
                         ctx.font = '12px Inter, sans-serif';
-                        ctx.fillText(String(subVal).slice(0, 56), x + 10, y + 56);
+                        wrapText(subVal, x + 10, Math.max(y + 56, nextY + 2), w - 20, 15);
                     }
                 }
 
                 // Cột trái
-                drawFieldBox(40, 125, 560, 115, '1. Shipper / Exporter (Name & Address)', s.shipper, 'Origin Port Terminal / Industrial Zone');
-                drawFieldBox(40, 240, 560, 115, '2. Consignee (Name & Address / To Order Of)', s.consignee, 'Destination Logistics Hub & Bonded Warehouse');
-                drawFieldBox(40, 355, 560, 115, '3. Notify Party / Intermediate Consignee', 'SAME AS CONSIGNEE', 'Logistics Operations Division (Contact Person On File)');
+                drawFieldBox(40, 125, 560, 115, '1. Shipper / Exporter (Name & Address)', s.shipper, s.shipperAddress || 'Địa chỉ chưa khai báo');
+                drawFieldBox(40, 240, 560, 115, '2. Consignee (Name & Address / To Order Of)', s.consignee, s.consigneeAddress || 'Địa chỉ chưa khai báo');
+                drawFieldBox(40, 355, 560, 115, '3. Notify Party / Intermediate Consignee', s.notifyParty || 'SAME AS CONSIGNEE', s.notifyAddress || s.consigneeAddress || 'Địa chỉ chưa khai báo');
 
                 // Cột phải
-                var originPort = s.route.split('→')[0].trim();
-                var destPort = s.route.split('→').slice(-1)[0].trim();
+                var routePoints = String(s.route || '').split('→').map(function (p) { return p.trim(); });
+                var originPort = routePoints[0] || 'Chưa khai báo';
+                var destPort = routePoints[routePoints.length - 1] || 'Chưa khai báo';
+                var routeLegs = routePlanFor(s).legs || [];
+                var seaLeg = routeLegs.find(function (g) { return g.m === 'sea'; });
+                var seaNames = seaLeg ? seaLeg.l.split('→').map(function (p) { return p.trim(); }) : [];
+                var loadingPort = seaNames[0] || originPort;
+                var dischargePort = seaNames[seaNames.length - 1] || destPort;
+                var hsMatch = String(s.cargo || '').match(/\bHS\s*:?\s*(\d{4}[.\s]?\d{2}[.\s]?\d{2})\b/i);
+                var hsCode = s.hsCode || (hsMatch && hsMatch[1]) || 'Chưa khai báo';
                 drawFieldBox(600, 125, 280, 58, 'Pre-Carriage By', s.modeShort ? s.modeShort.split('+')[0].trim() : 'Road Feeder');
                 drawFieldBox(880, 125, 280, 58, 'Place of Receipt', originPort);
                 drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', s.vessel || s.flightNo || 'MOL TRUTH 024E');
-                drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', originPort);
-                drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', destPort);
+                drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', loadingPort);
+                drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', dischargePort);
                 drawFieldBox(880, 240, 280, 58, 'Place of Delivery', destPort);
                 drawFieldBox(600, 298, 280, 57, 'Carrier / Liners Agent', s.carrier || 'MAERSK / ONE LINE CO., LTD');
                 drawFieldBox(880, 298, 280, 57, 'Movement Type & Freight', 'FCL/FCL · ' + (s.incoterm || 'CIF Hải Phòng'));
@@ -2045,44 +2095,45 @@
                 ctx.fillText(s.container || 'MSKU9082341', 55, rY);
                 ctx.font = '12px Inter, sans-serif';
                 ctx.fillStyle = '#475569';
-                ctx.fillText('SEAL: ' + (s.seal || 'ML-VN882101'), 55, rY + 24);
+                ctx.fillText('SEAL: ' + (s.seal || 'Chưa khai báo'), 55, rY + 24);
                 ctx.fillText('TYPE: ' + (s.containerType || '40GP / HIGH CUBE'), 55, rY + 44);
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = 'bold 14px Inter, sans-serif';
-                ctx.fillText(s.quantity || '1x40HQ FCL', 290, rY);
+                var quantityEndY = wrapText(s.quantity || 'Chưa khai báo', 290, rY, 130, 18);
                 ctx.font = '12px Inter, sans-serif';
                 ctx.fillStyle = '#475569';
-                ctx.fillText('PALLETIZED CARGO', 290, rY + 24);
-                ctx.fillText('STOWED IN CONTAINER', 290, rY + 44);
+                ctx.fillText('PALLETIZED CARGO', 290, quantityEndY + 8);
+                ctx.fillText('STOWED IN CONTAINER', 290, quantityEndY + 26);
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = '900 16px Inter, sans-serif';
-                ctx.fillText(s.cargo, 450, rY);
+                var goodsEndY = wrapText(s.cargo || 'Chưa khai báo', 450, rY, 400, 21);
 
                 ctx.font = '13px Inter, sans-serif';
                 ctx.fillStyle = '#334155';
-                ctx.fillText('HS CODE: 8708.30.90 | INCOTERMS: ' + (s.incoterm || 'CIF'), 450, rY + 26);
-                ctx.fillText('ORIGIN: ' + originPort + ' ➔ DESTINATION: ' + destPort, 450, rY + 48);
-                ctx.fillText('CARRIER BOOKING NO: ' + (s.booking || 'BK-' + s.id), 450, rY + 70);
+                var detailY = goodsEndY + 8;
+                detailY = wrapText('HS CODE: ' + hsCode + ' | INCOTERMS: ' + (s.incoterm || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
+                detailY = wrapText('ORIGIN: ' + originPort + ' ➔ DESTINATION: ' + destPort, 450, detailY, 400, 18) + 4;
+                detailY = wrapText('CARRIER BOOKING NO: ' + (s.booking || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
 
                 if (s.showTemp) {
                     ctx.fillStyle = '#0284C7';
                     ctx.font = 'bold 13px Inter, sans-serif';
-                    ctx.fillText('★ TEMPERATURE CONTROLLED: SET TEMP ' + s.temp + ' (CONTINUOUS GENSET ACTIVE)', 450, rY + 95);
+                    wrapText('★ TEMPERATURE CONTROLLED: SET TEMP ' + s.temp + ' (CONTINUOUS GENSET ACTIVE)', 450, detailY, 400, 18);
                 }
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = '900 16px Inter, monospace';
-                ctx.fillText((s.weight ? s.weight + ' MTS' : '18.500 MTS'), 880, rY);
+                fitText((s.weight ? s.weight + ' MTS' : 'Chưa khai báo'), 880, rY, 125);
                 ctx.fillStyle = '#475569';
                 ctx.font = '12px Inter, sans-serif';
-                ctx.fillText('TARE: 3.820 MTS', 880, rY + 24);
-                ctx.fillText('VGM: ' + (s.weight ? (s.weight + 3.82).toFixed(2) + ' MTS' : '22.320 MTS'), 880, rY + 44);
+                fitText('TARE: ' + (s.tare || 'Chưa khai báo'), 880, rY + 24, 125);
+                fitText('VGM: ' + (s.vgm || 'Chưa khai báo'), 880, rY + 44, 125);
 
                 ctx.fillStyle = '#0F172A';
                 ctx.font = '900 16px Inter, monospace';
-                ctx.fillText((s.volume ? s.volume + ' CBM' : '45.800 CBM'), 1030, rY);
+                fitText((s.volume ? s.volume + ' CBM' : 'Chưa khai báo'), 1030, rY, 120);
                 ctx.fillStyle = '#475569';
                 ctx.font = '12px Inter, sans-serif';
                 ctx.fillText('STANDARD CUBE', 1030, rY + 24);
@@ -2094,7 +2145,7 @@
                 ctx.fillStyle = '#0F172A';
                 ctx.font = 'bold 13px Inter, sans-serif';
                 ctx.fillText('TOTAL CONTAINERS / PACKAGES: 1 UNIT (FCL/FCL) — CLEAN ON BOARD', 55, tableTop + 520);
-                ctx.fillText('TOTAL GROSS: ' + (s.weight ? s.weight + ' MTS' : '18.500 MTS'), 880, tableTop + 520);
+                fitText('TOTAL GROSS: ' + (s.weight ? s.weight + ' MTS' : 'Chưa khai báo'), 880, tableTop + 520, 265);
 
                 // 3. KHU VỰC ĐIỀU KHOẢN VÀ CON DẤU MỘC
                 var bTop = 1030;
@@ -2250,18 +2301,22 @@
         async function generateAndBindDocuments(shipId) {
             var s = shipments.find(function (item) { return item.id === shipId; });
             if (!s) { notify('Không tìm thấy thông tin lô hàng ' + shipId); return; }
+            var documentShipment = Object.assign({}, s, {
+                bl: s.bl || 'MAEU-' + shipId.replace(/[^\d]/g, '') + '88',
+                customsDec: s.customsDec || '106' + Math.floor(100000000 + Math.random() * 900000000)
+            });
 
             notify('🤖 AI đang đọc dữ liệu lô ' + shipId + ' và khởi tạo Vận đơn B/L & Tờ khai Excel...');
 
             try {
                 // 1. Tự sinh ảnh Vận đơn B/L chuẩn 100% bằng Canvas
-                var billDataUrl = await createBillOfLadingCanvas(s);
-                var billFileName = 'BL_' + (s.bl || s.id) + '_ORIGINAL.jpg';
+                var billDataUrl = await createBillOfLadingCanvas(documentShipment);
+                var billFileName = 'BL_' + documentShipment.bl + '_DRAFT.jpg';
                 var billAsset = await saveGeneratedAsset(billDataUrl, billFileName, 'bill', 'image/jpeg');
 
                 // 2. Tự sinh file Excel Tờ khai Hải quan điện tử VNACCS / Manifest bằng SheetJS
-                var excelDataUrl = await createCustomsExcelFile(s);
-                var excelFileName = 'TO_KHAI_HQ_' + (s.customsDec || s.id) + '.xlsx';
+                var excelDataUrl = await createCustomsExcelFile(documentShipment);
+                var excelFileName = 'TO_KHAI_HQ_' + documentShipment.customsDec + '.xlsx';
                 var customsAsset = await saveGeneratedAsset(excelDataUrl, excelFileName, 'customs', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
                 // 3. Tự động liên kết vào hệ thống lô hàng
@@ -2274,15 +2329,15 @@
 
                 var shipRecord = next.shipments.find(function (item) { return item.id === shipId; });
                 if (shipRecord) {
-                    if (!shipRecord.bl) shipRecord.bl = 'MAEU-' + shipId.replace(/[^\d]/g, '') + '88';
-                    if (!shipRecord.customsDec) shipRecord.customsDec = '106' + Math.floor(100000000 + Math.random() * 900000000);
+                    shipRecord.bl = documentShipment.bl;
+                    shipRecord.customsDec = documentShipment.customsDec;
                 }
 
                 await commitData(next, 'AI tự động sinh B/L & Tờ khai Excel cho ' + shipId);
                 renderEBLTable();
                 await viewEBL(shipId);
 
-                notify('✅ AI đã hoàn tất: Sinh ảnh B/L & file Excel khớp 100% dữ liệu cho lô ' + shipId + '!');
+                notify('Đã tạo chứng từ mô phỏng cho lô ' + shipId + '. Hãy kiểm tra các trường trước khi sử dụng.');
                 return { billDataUrl: billDataUrl, excelDataUrl: excelDataUrl, s: shipRecord || s };
             } catch (e) {
                 console.error('Lỗi sinh chứng từ AI:', e);
