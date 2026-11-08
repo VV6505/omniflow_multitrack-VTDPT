@@ -2610,34 +2610,12 @@
                 '</div>';
         }
 
-        async function aiResponse(query) {
+        async function aiResponse(query, attachment) {
             var raw = String(query || '').trim();
-            if (!raw) return 'Bạn vui lòng nhập câu hỏi hoặc dán bài báo cần phân tích.';
 
-            // 1. Kiểm tra chính xác mã (nếu nhập sai mã như SHIP-VN-8821154 thì lập tức báo lỗi chính xác)
-            var codeResult = findShipmentExact(raw);
-            if (codeResult.status === 'NOT_FOUND') {
-                return '<div class="p-3 bg-red-950/40 border border-red-800/80 rounded-xl space-y-2">' +
-                    '<div class="flex items-center gap-2 text-red-400 font-bold">' +
-                    '<i class="fa-solid fa-circle-xmark"></i>' +
-                    '<span>Không tìm thấy ' + esc(codeResult.type) + ': "' + esc(codeResult.code) + '"</span>' +
-                    '</div>' +
-                    '<p class="text-xs text-slate-300 leading-relaxed">' +
-                    'Mã này hiện <b>chưa được khai báo</b> trong hệ thống dữ liệu OmniFlow.<br>' +
-                    '• Vui lòng kiểm tra lại chính tả của mã.<br>' +
-                    '• Các mã lô chuẩn có sẵn: <code>SHIP-VN-8821</code>, <code>SHIP-VN-9042</code>, <code>SHIP-VN-7710</code>, <code>SHIP-VN-3391</code>.<br>' +
-                    '• Các mã B/L / AWB có sẵn: <code>MAEU2204567</code>, <code>MAEU2204123</code>, <code>023-44556606</code>, <code>OOLU7788990</code>.' +
-                    '</p>' +
-                    '<div class="pt-2 border-t border-red-900/40 flex flex-wrap gap-2">' +
-                    '<button class="primary text-xs" onclick="openShipmentWithDraftBL(\'' + esc(codeResult.code) + '\')">+ Tạo lô mới với mã này</button>' +
-                    '<button class="secondary text-xs" onclick="switchTab(\'shipments\')">Xem danh sách lô hiện có</button>' +
-                    '</div>' +
-                    '</div>';
-            }
-
-            // 2. Nếu có ảnh đính kèm: Ưu tiên gọi Gemini Multimodal Vision để đọc chứng từ/hình ảnh
-            var apiKey = getGeminiKey();
+            // 1. NẾU CÓ ẢNH ĐÍNH KÈM: Ưu tiên gọi Gemini Multimodal Vision để đọc chứng từ / hình ảnh
             if (attachment) {
+                var apiKey = getGeminiKey();
                 if (!apiKey) {
                     return '<div class="space-y-3">' +
                         '<div class="p-3 bg-teal-500/10 border border-teal-500/30 rounded-xl text-xs">' +
@@ -2659,12 +2637,36 @@
                 } catch (geminiErr) {
                     return '<div class="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300">' +
                         '<b>Lỗi phân tích hình ảnh qua Gemini:</b> ' + esc(geminiErr.message) + '<br>' +
-                        'Vui lòng kiểm tra lại kết nối mạng hoặc thử lại.' +
+                        'Vui lòng kiểm tra lại kết nối mạng hoặc tính hợp lệ của API Key.' +
                         '</div>';
                 }
             }
 
+            if (!raw) return 'Bạn vui lòng nhập câu hỏi hoặc dán bài báo/ảnh chứng từ cần phân tích.';
+
+            // 2. Không có ảnh: Kiểm tra chính xác mã (nếu nhập sai mã như SHIP-VN-8821154 thì lập tức báo lỗi chính xác)
+            var codeResult = findShipmentExact(raw);
+            if (codeResult && codeResult.status === 'NOT_FOUND') {
+                return '<div class="p-3 bg-red-950/40 border border-red-800/80 rounded-xl space-y-2">' +
+                    '<div class="flex items-center gap-2 text-red-400 font-bold">' +
+                    '<i class="fa-solid fa-circle-xmark"></i>' +
+                    '<span>Không tìm thấy ' + esc(codeResult.type) + ': "' + esc(codeResult.code) + '"</span>' +
+                    '</div>' +
+                    '<p class="text-xs text-slate-300 leading-relaxed">' +
+                    'Mã này hiện <b>chưa được khai báo</b> trong hệ thống dữ liệu OmniFlow.<br>' +
+                    '• Vui lòng kiểm tra lại chính tả của mã.<br>' +
+                    '• Các mã lô chuẩn có sẵn: <code>SHIP-VN-8821</code>, <code>SHIP-VN-9042</code>, <code>SHIP-VN-7710</code>, <code>SHIP-VN-3391</code>.<br>' +
+                    '• Các mã B/L / AWB có sẵn: <code>MAEU2204567</code>, <code>MAEU2204123</code>, <code>023-44556606</code>, <code>OOLU7788990</code>.' +
+                    '</p>' +
+                    '<div class="pt-2 border-t border-red-900/40 flex flex-wrap gap-2">' +
+                    '<button class="primary text-xs" onclick="openShipmentWithDraftBL(\'' + esc(codeResult.code) + '\')">+ Tạo lô mới với mã này</button>' +
+                    '<button class="secondary text-xs" onclick="switchTab(\'shipments\')">Xem danh sách lô hiện có</button>' +
+                    '</div>' +
+                    '</div>';
+            }
+
             // 3. Nếu không có ảnh nhưng có Gemini API Key, gọi mô hình LLM với mảng luân phiên
+            var apiKey = getGeminiKey();
             if (apiKey) {
                 try {
                     return await callGeminiWithRotation(apiKey, raw, null);
