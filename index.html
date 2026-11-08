@@ -943,7 +943,7 @@
                 <h2>Chọn điểm trên bản đồ</h2><button class="secondary" onclick="closePointPicker()">Đóng</button>
             </div>
             <div class="flex gap-2 my-3"><input id="point-search" class="field flex-1"
-                    placeholder="Tên địa điểm hoặc địa chỉ"><button class="primary"
+                    placeholder="Tên địa điểm hoặc tọa độ: 10.5220, 107.0120" onkeydown="if(event.key==='Enter'){event.preventDefault();searchPointPicker()}"><button class="primary"
                     onclick="searchPointPicker()">Tìm</button>
             </div>
             <div id="point-results" class="space-y-1 mb-2"></div>
@@ -1856,7 +1856,32 @@
         }
         function openPointPicker(index, end) { syncDraft(); pointTarget = { index: index, end: end }; el('point-dialog').classList.add('show'); text('point-results', ''); if (!pointPicker) { pointPicker = L.map('point-map').setView([16, 108], 5); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' }).addTo(pointPicker); pointPicker.on('click', function (e) { choosePickerPoint(e.latlng.lat, e.latlng.lng, '') }); } setTimeout(function () { pointPicker.invalidateSize() }, 80); }
         function closePointPicker() { el('point-dialog').classList.remove('show'); }
-        async function searchPointPicker() { try { var query = value('point-search').trim(); if (!query) return; text('point-results', 'Đang tìm…'); var items = await fetchJSON('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' + encodeURIComponent(query), 12000); el('point-results').innerHTML = ''; if (!items.length) { text('point-results', 'Không tìm thấy; bạn có thể ghim trực tiếp trên bản đồ.'); return; } items.forEach(function (item) { var b = document.createElement('button'); b.className = 'secondary block w-full text-left'; b.textContent = item.display_name; b.onclick = function () { choosePickerPoint(+item.lat, +item.lon, item.display_name) }; el('point-results').appendChild(b) }); } catch (e) { text('point-results', 'Dịch vụ tìm kiếm chưa đáp ứng. Bạn vẫn có thể ghim trên bản đồ.'); } }
+        function parsePointSearch(query) {
+            var match = query.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*[,;]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))$/);
+            return match ? [Number(match[1]), Number(match[2])] : null;
+        }
+        async function searchPointPicker() {
+            var query = value('point-search').trim(); if (!query) return;
+            var coords = parsePointSearch(query);
+            if (coords) {
+                if (!validPoint(coords)) { text('point-results', 'Tọa độ không hợp lệ: vĩ độ từ -90 đến 90, kinh độ từ -180 đến 180.'); return; }
+                if (pointPicker.searchMarker) pointPicker.removeLayer(pointPicker.searchMarker);
+                pointPicker.searchMarker = L.marker(coords).addTo(pointPicker);
+                pointPicker.setView(coords, 13);
+                var result = el('point-results'); result.innerHTML = '';
+                var button = document.createElement('button'); button.type = 'button'; button.className = 'secondary block w-full text-left';
+                button.textContent = 'Dùng tọa độ ' + coords[0].toFixed(5) + ', ' + coords[1].toFixed(5) + ' cho điểm đang chọn';
+                button.onclick = function () { choosePickerPoint(coords[0], coords[1], ''); };
+                result.appendChild(button); return;
+            }
+            try {
+                text('point-results', 'Đang tìm…');
+                var items = await fetchJSON('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' + encodeURIComponent(query), 12000);
+                el('point-results').innerHTML = '';
+                if (!items.length) { text('point-results', 'Không tìm thấy; bạn có thể ghim trực tiếp trên bản đồ.'); return; }
+                items.forEach(function (item) { var b = document.createElement('button'); b.type = 'button'; b.className = 'secondary block w-full text-left'; b.textContent = item.display_name; b.onclick = function () { choosePickerPoint(+item.lat, +item.lon, item.display_name) }; el('point-results').appendChild(b) });
+            } catch (e) { text('point-results', 'Dịch vụ tìm kiếm chưa đáp ứng. Bạn vẫn có thể ghim trên bản đồ.'); }
+        }
         function choosePickerPoint(lat, lng, name) { var i = pointTarget.index, end = pointTarget.end; el('leg-' + i + '-' + end + 'lat').value = lat.toFixed(5); el('leg-' + i + '-' + end + 'lng').value = lng.toFixed(5); var nameId = 'leg-' + i + '-' + (end === 'a' ? 'from' : 'to'); if (name && !value(nameId)) el(nameId).value = name; closePointPicker(); }
         function previewDraftRoute() { try { syncDraft(); var legs = draftLegs(draftShipment); openPointPicker(0, 'a'); el('point-results').innerHTML = '<p class="notice">Xem trước các điểm đã khai báo. Tuyến chi tiết được lấy sau khi tạo lô; các đường nối ở đây chỉ là minh họa.</p>'; if (pointPicker.preview) pointPicker.removeLayer(pointPicker.preview); pointPicker.preview = L.layerGroup().addTo(pointPicker); var pts = []; legs.forEach(function (g) { L.polyline([g.a, g.b], { color: MODE_STYLE[g.m].color, dashArray: '5 6' }).addTo(pointPicker.preview); pts.push(g.a, g.b) }); pointPicker.fitBounds(pts, { padding: [30, 30] }); } catch (e) { text('draft-error', e.message) } }
         function openTemplateForm() { openDialog('Đăng ký mẫu nhận diện mô phỏng', '<p class="notice">Gắn ảnh cụ thể với dữ liệu do bạn xác nhận. Đây là đối chiếu ảnh mẫu, không phải nhận dạng chữ/OCR. Mã vận đơn của mẫu cần khác lô đang theo dõi nếu muốn tạo lô mới.</p><form onsubmit="event.preventDefault();registerTemplate()" class="space-y-3 mt-3"><label>Tên mẫu<input id="template-name" class="field" required maxlength="100"></label><label>Hồ sơ dùng làm mẫu<select id="template-source" class="field">' + shipments.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.id + ' · ' + s.shipper) + '</option>' }).join('') + '</select></label><label>Số B/L / AWB trên ảnh mẫu<input id="template-bl" class="field" required maxlength="100"></label><label>Ảnh mẫu<input id="template-image" type="file" accept="image/png,image/jpeg,image/webp" class="field" required></label><p class="muted">Sau khi tải ảnh để tạo Shipment, người dùng có thể điều chỉnh toàn bộ thông tin điền sẵn trước khi xác nhận lưu.</p><p id="template-error" class="error-text"></p><button id="template-save" class="primary">Đăng ký mẫu</button></form>'); }
