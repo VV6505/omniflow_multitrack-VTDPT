@@ -1826,7 +1826,7 @@
         function formInput(id, label, content, type) { return '<label>' + label + '<input id="' + id + '" type="' + (type || 'text') + '" ' + (type === 'number' ? 'step="any"' : '') + ' class="field" value="' + esc(content) + '" maxlength="1000"></label>'; }
         function draftPlaceInput(index, end, label, content) {
             var id = 'leg-' + index + '-' + (end === 'a' ? 'from' : 'to');
-            return '<label class="relative block">' + label + '<input id="' + id + '" class="field" value="' + esc(content) + '" maxlength="1000" autocomplete="off" ' +
+            return '<label class="relative block">' + label + '<input id="' + id + '" class="field" value="' + esc(content) + '" placeholder="Gõ tên để xem gợi ý địa điểm" maxlength="1000" autocomplete="off" ' +
                 'onfocus="suggestDraftPlace(' + index + ',\'' + end + '\')" oninput="suggestDraftPlace(' + index + ',\'' + end + '\')" onkeydown="handleDraftPlaceKey(event,' + index + ',\'' + end + '\')" ' +
                 'onblur="setTimeout(function(){hideDraftPlaceSuggestions(' + index + ',\'' + end + '\')},180)">' +
                 '<div id="' + id + '-suggestions" class="hidden absolute left-0 right-0 z-[260] max-h-56 overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 shadow-2xl"></div></label>';
@@ -1862,9 +1862,10 @@
             el(prefix + end + 'lng').value = lng.toFixed(5);
             hideDraftPlaceSuggestions(index, end);
         }
-        function renderDraftPlaceSuggestions(index, end, features) {
+        function renderDraftPlaceSuggestions(index, end, features, source, hint) {
             var box = draftPlaceSuggestionBox(index, end); if (!box) return;
             box.innerHTML = ''; box.classList.remove('hidden');
+            if (hint) { var intro = document.createElement('p'); intro.className = 'px-3 py-2 text-xs text-slate-400'; intro.textContent = hint; box.appendChild(intro); }
             var count = 0;
             (features || []).forEach(function (feature) {
                 var p = feature.properties || {}, coords = feature.geometry && feature.geometry.coordinates;
@@ -1879,16 +1880,29 @@
                 box.appendChild(button); count++;
             });
             if (!count) { var empty = document.createElement('p'); empty.className = 'px-3 py-2 text-xs text-slate-400'; empty.textContent = 'Không có gợi ý phù hợp. Thử tên đầy đủ hơn hoặc dùng bản đồ.'; box.appendChild(empty); }
-            var credit = document.createElement('p'); credit.className = 'px-3 py-1 text-[10px] text-slate-500'; credit.textContent = 'Dữ liệu: © OpenStreetMap contributors · Photon'; box.appendChild(credit);
+            var credit = document.createElement('p'); credit.className = 'px-3 py-1 text-[10px] text-slate-500'; credit.textContent = source === 'demo' ? 'Tọa độ mẫu trong dự án · Hãy kiểm tra lại trên bản đồ' : 'Dữ liệu: © OpenStreetMap contributors · Photon'; box.appendChild(credit);
+        }
+        function showDraftPlaceStatus(index, end, message) {
+            var box = draftPlaceSuggestionBox(index, end); if (!box) return;
+            box.innerHTML = ''; box.classList.remove('hidden');
+            var note = document.createElement('p'); note.className = 'px-3 py-2 text-xs text-slate-400'; note.textContent = message; box.appendChild(note);
         }
         function suggestDraftPlace(index, end) {
             clearTimeout(draftPlaceSuggestTimer);
             var seq = ++draftPlaceSuggestSeq, query = value('leg-' + index + '-' + (end === 'a' ? 'from' : 'to')).trim();
-            if (query.length < 3) { hideDraftPlaceSuggestions(index, end); return; }
+            if (query.length < 3) {
+                renderDraftPlaceSuggestions(index, end, [
+                    { properties: { name: 'Cảng Cát Lái', city: 'TP.HCM' }, geometry: { coordinates: [106.794, 10.7626] } },
+                    { properties: { name: 'Cảng Đình Vũ', city: 'Hải Phòng' }, geometry: { coordinates: [106.69, 20.86] } },
+                    { properties: { name: 'Cảng Hamburg', city: 'Đức' }, geometry: { coordinates: [9.94, 53.53] } }
+                ], 'demo', query ? 'Gõ thêm để tìm theo tên; dưới đây là điểm mẫu.' : 'Điểm mẫu để thử. Gõ ít nhất 3 ký tự để tìm địa điểm khác.');
+                return;
+            }
             var coords = parsePointSearch(query);
             if (coords && validPoint(coords)) { renderDraftPlaceSuggestions(index, end, [{ properties: { name: query }, geometry: { coordinates: [coords[1], coords[0]] } }]); return; }
             var key = query.toLocaleLowerCase('vi-VN');
             if (draftPlaceCache[key]) { renderDraftPlaceSuggestions(index, end, draftPlaceCache[key]); return; }
+            showDraftPlaceStatus(index, end, 'Đang tìm gợi ý cho “' + query + '”…');
             var delay = Math.max(650, 1000 - (Date.now() - draftPlaceLastRequest));
             draftPlaceSuggestTimer = setTimeout(async function () {
                 draftPlaceLastRequest = Date.now();
@@ -1897,7 +1911,7 @@
                     if (seq !== draftPlaceSuggestSeq) return;
                     draftPlaceCache[key] = result.features || [];
                     renderDraftPlaceSuggestions(index, end, draftPlaceCache[key]);
-                } catch (e) { if (seq === draftPlaceSuggestSeq) hideDraftPlaceSuggestions(index, end); }
+                } catch (e) { if (seq === draftPlaceSuggestSeq) showDraftPlaceStatus(index, end, 'Không tải được gợi ý. Bạn có thể bấm Tìm tọa độ để chọn trên bản đồ.'); }
             }, delay);
         }
         function handleDraftPlaceKey(event, index, end) {
