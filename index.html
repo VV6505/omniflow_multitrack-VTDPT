@@ -405,6 +405,56 @@
             outline: 2px solid #22d3ee;
             outline-offset: 4px
         }
+
+        /* Responsive navigation and data views */
+        body { height: 100vh; height: 100dvh; }
+        main, main section, .panel, .grid > * { min-width: 0; }
+        .app-nav .nav-tab { flex: 0 0 auto; white-space: nowrap; }
+        .mobile-nav-toggle { display: none; }
+        .map-toolbar { flex-wrap: wrap; gap: 12px; }
+        .map-toolbar > div:last-child { flex-wrap: wrap; gap: 8px; }
+        .modal-overlay > div { max-width: 100%; }
+        @media (min-width: 768px) and (max-width: 1279px) {
+            .app-nav { overflow-x: auto; }
+        }
+        @media (max-width: 767px) {
+            header { position: relative; z-index: 50; }
+            .app-header-row { padding: 12px; }
+            .app-brand { gap: 10px; min-width: 0; width: 100%; }
+            .app-brand > div + div { margin-left: 0; min-width: 0; }
+            .app-brand h1 { font-size: 17px; }
+            .app-brand h1 + span { display: none; }
+            .app-brand p { font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+            .mobile-nav-toggle { display: flex; align-items: center; justify-content: space-between; width: calc(100% - 24px); margin: 0 12px 12px; padding: 12px 14px; border: 1px solid #334155; border-radius: 10px; background: #1e293b; color: #e2e8f0; font-size: 12px; font-weight: 700; text-align: left; }
+            .mobile-nav-toggle i { color: #2dd4bf; }
+            .app-nav { display: none !important; position: absolute; top: calc(100% - 6px); left: 12px; right: 12px; z-index: 1200; max-height: min(70vh, 420px); overflow-y: auto; overflow-x: hidden; padding: 6px !important; border: 1px solid #334155; border-radius: 12px; background: #0f172a !important; box-shadow: 0 16px 32px #000b; }
+            .app-nav.is-open { display: flex !important; flex-direction: column; }
+            .app-nav .nav-tab { width: 100%; margin: 0 !important; padding: 13px 12px !important; border: 0; border-radius: 8px; text-align: left; }
+            .app-nav .nav-tab i { width: 18px; text-align: center; }
+            .app-nav .nav-tab.border-teal-400 { background: #134e4a; color: #5eead4; }
+            main { padding: 12px !important; }
+            #map { min-height: 340px; }
+            .map-toolbar > div:last-child { width: 100%; }
+            #simulation-toggle { margin-left: 0; }
+            .modal-overlay { padding: 10px; }
+            .form-grid, .form-grid .wide { grid-template-columns: 1fr; grid-column: auto; }
+            .chat-compose { flex-wrap: wrap; }
+            .chat-compose #chat-input { flex: 1 1 70%; }
+            input.field, select.field, textarea.field { font-size: 16px; }
+            #tab-ebl .document-table, #tab-ebl .document-table tbody, #tab-ebl .document-table tr, #tab-ebl .document-table td { display: block; width: 100%; }
+            #tab-ebl .document-table thead { display: none; }
+            #tab-ebl .document-table tr { margin-bottom: 12px; padding: 14px; border: 1px solid #334155; border-radius: 12px; background: #0f172a; }
+            #tab-ebl .document-table td { padding: 8px 0; border: 0; overflow-wrap: anywhere; }
+            #tab-ebl .document-table td + td { border-top: 1px solid #1e293b; }
+            #tab-ebl .document-table td:not([colspan])::before { display: block; margin-bottom: 4px; color: #94a3b8; font-size: 11px; font-weight: 600; }
+            #tab-ebl .document-table td:nth-child(1):not([colspan])::before { content: "Vận đơn / Lô hàng"; }
+            #tab-ebl .document-table td:nth-child(2)::before { content: "Người bán → Người mua"; }
+            #tab-ebl .document-table td:nth-child(3)::before { content: "Hải quan"; }
+            #tab-ebl .document-table td:nth-child(4)::before { content: "Tệp đính kèm"; }
+            #tab-ebl .document-table td:nth-child(5)::before { content: "Chi tiết"; }
+            #tab-ebl .document-table td:last-child { white-space: normal; }
+            #tab-ebl .document-table td:last-child button { margin: 4px 6px 0 0; min-height: 40px; }
+        }
     </style>
 </head>
 
@@ -412,8 +462,8 @@
 
     <!-- HEADER -->
     <header class="bg-slate-900 border-b border-slate-800 flex-shrink-0">
-        <div class="px-6 py-3 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
+        <div class="app-header-row px-6 py-3 flex items-center justify-between">
+            <div class="app-brand flex items-center space-x-4">
                 <div
                     class="bg-gradient-to-tr from-blue-600 via-teal-500 to-emerald-400 p-2.5 rounded-xl shadow-lg shadow-teal-500/10">
                     <i class="fa-solid fa-layer-group text-2xl text-white"></i>
@@ -457,7 +507,8 @@
                 </div>
             </div>
         </div>
-        <nav class="flex px-6 space-x-2 border-t border-slate-800/80 bg-slate-900/60 text-xs font-medium">
+        <button type="button" class="mobile-nav-toggle" aria-expanded="false" aria-controls="app-nav" onclick="toggleMobileNav()"><span><i class="fa-solid fa-bars mr-2" aria-hidden="true"></i><span id="mobile-nav-label">1. Control Tower Realtime</span></span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+        <nav id="app-nav" aria-label="Điều hướng chính" class="app-nav flex px-6 space-x-2 border-t border-slate-800/80 bg-slate-900/60 text-xs font-medium">
             <button onclick="switchTab('dashboard')" id="tb-dashboard"
                 class="nav-tab flex items-center space-x-2 px-4 py-3 border-b-2 text-teal-400 border-teal-400 font-bold"><i
                     class="fa-solid fa-border-all"></i><span>1. Control Tower Realtime</span></button>
@@ -534,7 +585,7 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl flex flex-col">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3 text-xs">
+                    <div class="map-toolbar flex items-center justify-between pb-3 border-b border-slate-800 mb-3 text-xs">
                         <div class="flex items-center space-x-3">
                             <span class="w-3 h-3 rounded-full bg-teal-500 animate-ping"></span>
                             <h2 class="font-bold text-slate-100 text-sm flex items-center gap-2"><i
@@ -697,7 +748,7 @@
                         <option value="PENDING">Chưa có phân luồng</option>
                     </select></div>
                 <div class="overflow-auto mt-3">
-                    <table class="demo-table">
+                    <table class="demo-table document-table">
                         <thead>
                             <tr>
                                 <th>Vận đơn / Lô hàng</th>
@@ -875,16 +926,24 @@
                         onclick="quickAsk('Hệ thống định tuyến đường biển bằng gì?')">🛰️ Thuật toán định tuyến</button>
                     <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-slate-900"
                         onclick="quickAsk('Dữ liệu được lưu trữ ở đâu?')">💾 Kiến trúc lưu trữ</button>
-                    <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-gradient-to-r from-teal-900/60 to-blue-900/60 text-teal-200 border-teal-500/50"
-                        onclick="quickAsk('AI tự động sinh trọn bộ B/L và file Excel tờ khai cho lô SHIP-VN-8821')"><i class="fa-solid fa-wand-magic-sparkles mr-1 text-teal-300"></i>⚡ AI sinh B/L & Excel lô 8821</button>
-                    <button type="button" class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-teal-950/40 text-teal-300 border-teal-500/40"
-                        onclick="el('chat-file-input').click()"><i class="fa-solid fa-paperclip mr-1"></i> Tải ảnh B/L, AWB hoặc Tờ khai</button>
+                    <button type="button"
+                        class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-gradient-to-r from-teal-900/60 to-blue-900/60 text-teal-200 border-teal-500/50"
+                        onclick="quickAsk('AI tự động sinh trọn bộ B/L và file Excel tờ khai cho lô SHIP-VN-8821')"><i
+                            class="fa-solid fa-wand-magic-sparkles mr-1 text-teal-300"></i>⚡ AI sinh B/L & Excel lô
+                        8821</button>
+                    <button type="button"
+                        class="pill hover:border-teal-400 cursor-pointer text-[11px] bg-teal-950/40 text-teal-300 border-teal-500/40"
+                        onclick="el('chat-file-input').click()"><i class="fa-solid fa-paperclip mr-1"></i> Tải ảnh B/L,
+                        AWB hoặc Tờ khai</button>
                 </div>
 
                 <!-- KHUNG XEM TRƯỚC ẢNH ĐÍNH KÈM (Thumbnail Preview) -->
-                <div id="chat-attachment-preview" class="hidden mb-2 p-2.5 bg-slate-900 border border-teal-500/40 rounded-xl flex items-center justify-between gap-3 shadow-lg">
+                <div id="chat-attachment-preview"
+                    class="hidden mb-2 p-2.5 bg-slate-900 border border-teal-500/40 rounded-xl flex items-center justify-between gap-3 shadow-lg">
                     <div class="flex items-center gap-3 min-w-0">
-                        <img id="chat-preview-img" src="" alt="Ảnh đính kèm" class="w-12 h-12 object-cover rounded-lg border border-slate-700 shadow cursor-pointer bg-black/40 hover:opacity-90 transition" onclick="window.open(this.src, '_blank')" title="Bấm để xem ảnh phóng to">
+                        <img id="chat-preview-img" src="" alt="Ảnh đính kèm"
+                            class="w-12 h-12 object-cover rounded-lg border border-slate-700 shadow cursor-pointer bg-black/40 hover:opacity-90 transition"
+                            onclick="window.open(this.src, '_blank')" title="Bấm để xem ảnh phóng to">
                         <div class="min-w-0">
                             <div class="flex items-center gap-1.5 text-xs font-semibold text-teal-300">
                                 <i class="fa-regular fa-image"></i>
@@ -892,21 +951,28 @@
                             </div>
                             <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                                 <span id="chat-preview-size">0 KB</span>
-                                <span class="text-emerald-400 font-medium"><i class="fa-solid fa-check"></i> Sẵn sàng phân tích</span>
+                                <span class="text-emerald-400 font-medium"><i class="fa-solid fa-check"></i> Sẵn sàng
+                                    phân tích</span>
                             </div>
                         </div>
                     </div>
-                    <button type="button" class="text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition" onclick="removeChatAttachment()" title="Hủy ảnh này">
+                    <button type="button"
+                        class="text-slate-400 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition"
+                        onclick="removeChatAttachment()" title="Hủy ảnh này">
                         <i class="fa-solid fa-xmark text-sm"></i>
                     </button>
                 </div>
 
-                <div class="flex items-center gap-2 mt-auto">
+                <div class="chat-compose flex items-center gap-2 mt-auto">
                     <!-- File input ẩn để chọn ảnh -->
-                    <input type="file" id="chat-file-input" accept="image/*" class="hidden" onchange="handleChatFileSelect(this.files)">
-                    
+                    <input type="file" id="chat-file-input" accept="image/*" class="hidden"
+                        onchange="handleChatFileSelect(this.files)">
+
                     <!-- Nút đính kèm ảnh -->
-                    <button type="button" class="secondary px-3 py-2 text-slate-300 hover:text-teal-300 border border-slate-700 hover:border-teal-500/50 rounded-lg flex items-center gap-1.5 text-xs transition whitespace-nowrap shadow-sm" onclick="el('chat-file-input').click()" title="Đính kèm ảnh B/L, AWB, tờ khai hoặc container (Hỗ trợ kéo thả & dán Ctrl+V)">
+                    <button type="button"
+                        class="secondary px-3 py-2 text-slate-300 hover:text-teal-300 border border-slate-700 hover:border-teal-500/50 rounded-lg flex items-center gap-1.5 text-xs transition whitespace-nowrap shadow-sm"
+                        onclick="el('chat-file-input').click()"
+                        title="Đính kèm ảnh B/L, AWB, tờ khai hoặc container (Hỗ trợ kéo thả & dán Ctrl+V)">
                         <i class="fa-solid fa-paperclip text-sm"></i>
                         <span class="hidden sm:inline">Ảnh</span>
                     </button>
@@ -922,10 +988,11 @@
 
     </main>
 
-    <footer class="flex-shrink-0 border-t border-slate-800/50 bg-slate-950 px-6 py-1 text-right text-[10px] text-slate-600">
+    <footer
+        class="flex-shrink-0 border-t border-slate-800/50 bg-slate-950 px-6 py-1 text-right text-[10px] text-slate-600">
         <a href="https://github.com/VV6505" target="_blank" rel="noopener noreferrer"
-            class="hover:text-slate-400 focus:text-slate-300 focus:outline-none focus:underline"
-            title="GitHub VV6505">© 2026 OmniFlow 360 Pro · VV6505</a>
+            class="hover:text-slate-400 focus:text-slate-300 focus:outline-none focus:underline" title="GitHub VV6505">©
+            2026 OmniFlow 360 Pro · VV6505</a>
     </footer>
 
     <!-- MODAL: SHIPMENT DETAIL -->
@@ -950,8 +1017,9 @@
                 <h2>Chọn điểm trên bản đồ</h2><button class="secondary" onclick="closePointPicker()">Đóng</button>
             </div>
             <div class="flex gap-2 my-3"><input id="point-search" class="field flex-1"
-                    placeholder="Tên địa điểm hoặc tọa độ: 10.5220, 107.0120" onkeydown="if(event.key==='Enter'){event.preventDefault();searchPointPicker()}"><button class="primary"
-                    onclick="searchPointPicker()">Tìm</button>
+                    placeholder="Tên địa điểm hoặc tọa độ: 10.5220, 107.0120"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();searchPointPicker()}"><button
+                    class="primary" onclick="searchPointPicker()">Tìm</button>
             </div>
             <div id="point-results" class="space-y-1 mb-2"></div>
             <p class="muted">Bấm bản đồ để chọn tọa độ. Tên kho/terminal cần người dùng xác nhận.</p>
@@ -2034,14 +2102,14 @@
                     wrap.className = 'space-y-2';
                     var btnBar = document.createElement('div');
                     btnBar.className = 'flex items-center justify-between pb-2';
-                    btnBar.innerHTML = '<span class="text-xs font-semibold text-teal-300"><i class="fa-regular fa-image mr-1"></i> ' + esc(bill.name) + ' (' + (bill.size ? (bill.size/1024).toFixed(1) + ' KB' : 'Ảnh gốc') + ')</span>' +
+                    btnBar.innerHTML = '<span class="text-xs font-semibold text-teal-300"><i class="fa-regular fa-image mr-1"></i> ' + esc(bill.name) + ' (' + (bill.size ? (bill.size / 1024).toFixed(1) + ' KB' : 'Ảnh gốc') + ')</span>' +
                         '<a class="secondary text-xs px-2.5 py-1 rounded inline-flex items-center gap-1 hover:border-teal-400" href="' + bill.data + '" download="' + bill.name + '"><i class="fa-solid fa-download"></i> Tải ảnh B/L về máy</a>';
                     wrap.appendChild(btnBar);
                     var img = document.createElement('img');
                     img.className = 'document-image max-h-[500px] w-auto mx-auto rounded-lg shadow-xl border border-slate-700 cursor-pointer bg-white';
                     img.alt = 'Ảnh vận đơn ' + (s.bl || s.id);
                     img.src = bill.data;
-                    img.onclick = function() {
+                    img.onclick = function () {
                         // Browsers can block top-level navigation to large data: URLs.
                         var parts = bill.data.match(/^data:([^;,]+)?;base64,(.*)$/s);
                         if (!parts) { window.open(bill.data, '_blank'); return; }
@@ -2060,7 +2128,7 @@
                     customWrap.className = 'mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between flex-wrap gap-2';
                     customWrap.innerHTML = '<div>' +
                         '<b class="text-xs text-emerald-400 block"><i class="fa-solid fa-file-excel mr-1"></i> Tờ khai hải quan điện tử (VNACCS) & Packing List</b>' +
-                        '<span class="text-[11px] text-slate-400">' + esc(customs.name) + ' (' + (customs.size ? (customs.size/1024).toFixed(1) + ' KB' : 'Excel') + ')</span>' +
+                        '<span class="text-[11px] text-slate-400">' + esc(customs.name) + ' (' + (customs.size ? (customs.size / 1024).toFixed(1) + ' KB' : 'Excel') + ')</span>' +
                         '</div>' +
                         '<a class="primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500" href="' + customs.data + '" download="' + customs.name + '"><i class="fa-solid fa-download"></i> Tải file Excel (.xlsx)</a>';
                     content.appendChild(customWrap);
@@ -2136,269 +2204,269 @@
         }
 
         async function createBillOfLadingCanvas(s) {
-                var canvas = document.createElement('canvas');
-                canvas.width = 1200;
-                canvas.height = 1720;
-                var ctx = canvas.getContext('2d');
+            var canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 1720;
+            var ctx = canvas.getContext('2d');
 
-                // Nền giấy tài liệu chuẩn
-                ctx.fillStyle = '#FFFFFF';
-                ctx.fillRect(0, 0, 1200, 1720);
+            // Nền giấy tài liệu chuẩn
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, 1200, 1720);
 
-                // Viền khung đôi tài liệu chính thức
-                ctx.strokeStyle = '#0F172A';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(35, 35, 1130, 1650);
-                ctx.lineWidth = 1;
-                ctx.strokeRect(40, 40, 1120, 1640);
+            // Viền khung đôi tài liệu chính thức
+            ctx.strokeStyle = '#0F172A';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(35, 35, 1130, 1650);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(40, 40, 1120, 1640);
 
-                // 1. HEADER BANNER
-                ctx.fillStyle = '#0F172A';
-                ctx.fillRect(40, 40, 760, 85);
+            // 1. HEADER BANNER
+            ctx.fillStyle = '#0F172A';
+            ctx.fillRect(40, 40, 760, 85);
 
-                ctx.fillStyle = '#38BDF8';
-                ctx.font = '900 24px Inter, sans-serif';
-                ctx.fillText('OMNIFLOW 360 PRO — MULTIMODAL LOGISTICS', 60, 75);
+            ctx.fillStyle = '#38BDF8';
+            ctx.font = '900 24px Inter, sans-serif';
+            ctx.fillText('OMNIFLOW 360 PRO — MULTIMODAL LOGISTICS', 60, 75);
 
-                ctx.fillStyle = '#E2E8F0';
-                ctx.font = '600 13px Inter, sans-serif';
-                ctx.fillText('COMBINED TRANSPORT BILL OF LADING / FIATA MULTIMODAL STANDARD', 60, 102);
+            ctx.fillStyle = '#E2E8F0';
+            ctx.font = '600 13px Inter, sans-serif';
+            ctx.fillText('COMBINED TRANSPORT BILL OF LADING / FIATA MULTIMODAL STANDARD', 60, 102);
 
-                // Khung số B/L góc phải
-                ctx.strokeStyle = '#0F172A';
-                ctx.strokeRect(800, 40, 360, 85);
-                ctx.fillStyle = '#475569';
-                ctx.font = 'bold 11px Inter, sans-serif';
-                ctx.fillText('BILL OF LADING NUMBER / BOOKING REF:', 815, 62);
-                ctx.fillStyle = '#0369A1';
-                ctx.font = '900 22px Inter, monospace';
-                ctx.fillText(s.bl || ('MAEU' + s.id.replace(/[^\d]/g, '') + '88'), 815, 90);
+            // Khung số B/L góc phải
+            ctx.strokeStyle = '#0F172A';
+            ctx.strokeRect(800, 40, 360, 85);
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillText('BILL OF LADING NUMBER / BOOKING REF:', 815, 62);
+            ctx.fillStyle = '#0369A1';
+            ctx.font = '900 22px Inter, monospace';
+            ctx.fillText(s.bl || ('MAEU' + s.id.replace(/[^\d]/g, '') + '88'), 815, 90);
+            ctx.fillStyle = '#64748B';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.fillText('REF: ' + s.id + ' | BOOKING: ' + (s.booking || 'BK-' + s.id), 815, 112);
+
+            function fitText(value, x, y, maxWidth) {
+                var str = String(value == null ? '' : value);
+                if (ctx.measureText(str).width <= maxWidth) { ctx.fillText(str, x, y); return; }
+                while (str.length && ctx.measureText(str + '…').width > maxWidth) str = str.slice(0, -1);
+                ctx.fillText(str + '…', x, y);
+            }
+            function wrapText(value, x, y, maxWidth, lineHeight) {
+                var words = String(value == null ? '' : value).split(/\s+/), line = '';
+                words.forEach(function (word) {
+                    var candidate = line ? line + ' ' + word : word;
+                    if (line && ctx.measureText(candidate).width > maxWidth) {
+                        ctx.fillText(line, x, y);
+                        y += lineHeight;
+                        line = word;
+                    } else line = candidate;
+                    while (ctx.measureText(line).width > maxWidth && line.length > 1) {
+                        var chunk = line;
+                        while (chunk.length > 1 && ctx.measureText(chunk).width > maxWidth) chunk = chunk.slice(0, -1);
+                        ctx.fillText(chunk, x, y);
+                        y += lineHeight;
+                        line = line.slice(chunk.length);
+                    }
+                });
+                if (line) { ctx.fillText(line, x, y); y += lineHeight; }
+                return y;
+            }
+            function drawFieldBox(x, y, w, h, title, val, subVal) {
+                ctx.strokeStyle = '#CBD5E1';
+                ctx.strokeRect(x, y, w, h);
                 ctx.fillStyle = '#64748B';
-                ctx.font = '11px Inter, sans-serif';
-                ctx.fillText('REF: ' + s.id + ' | BOOKING: ' + (s.booking || 'BK-' + s.id), 815, 112);
-
-                function fitText(value, x, y, maxWidth) {
-                    var str = String(value == null ? '' : value);
-                    if (ctx.measureText(str).width <= maxWidth) { ctx.fillText(str, x, y); return; }
-                    while (str.length && ctx.measureText(str + '…').width > maxWidth) str = str.slice(0, -1);
-                    ctx.fillText(str + '…', x, y);
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.fillText(title.toUpperCase(), x + 10, y + 16);
+                var nextY = y + 38;
+                if (val) {
+                    ctx.fillStyle = '#0F172A';
+                    ctx.font = h < 70 ? 'bold 12px Inter, sans-serif' : 'bold 14px Inter, sans-serif';
+                    nextY = wrapText(val, x + 10, y + (h < 70 ? 35 : 38), w - 20, h < 70 ? 14 : 18);
                 }
-                function wrapText(value, x, y, maxWidth, lineHeight) {
-                    var words = String(value == null ? '' : value).split(/\s+/), line = '';
-                    words.forEach(function (word) {
-                        var candidate = line ? line + ' ' + word : word;
-                        if (line && ctx.measureText(candidate).width > maxWidth) {
-                            ctx.fillText(line, x, y);
-                            y += lineHeight;
-                            line = word;
-                        } else line = candidate;
-                        while (ctx.measureText(line).width > maxWidth && line.length > 1) {
-                            var chunk = line;
-                            while (chunk.length > 1 && ctx.measureText(chunk).width > maxWidth) chunk = chunk.slice(0, -1);
-                            ctx.fillText(chunk, x, y);
-                            y += lineHeight;
-                            line = line.slice(chunk.length);
-                        }
-                    });
-                    if (line) { ctx.fillText(line, x, y); y += lineHeight; }
-                    return y;
+                if (subVal) {
+                    ctx.fillStyle = '#334155';
+                    ctx.font = '12px Inter, sans-serif';
+                    wrapText(subVal, x + 10, Math.max(y + 56, nextY + 2), w - 20, 15);
                 }
-                function drawFieldBox(x, y, w, h, title, val, subVal) {
-                    ctx.strokeStyle = '#CBD5E1';
-                    ctx.strokeRect(x, y, w, h);
-                    ctx.fillStyle = '#64748B';
-                    ctx.font = 'bold 10px Inter, sans-serif';
-                    ctx.fillText(title.toUpperCase(), x + 10, y + 16);
-                    var nextY = y + 38;
-                    if (val) {
-                        ctx.fillStyle = '#0F172A';
-                        ctx.font = h < 70 ? 'bold 12px Inter, sans-serif' : 'bold 14px Inter, sans-serif';
-                        nextY = wrapText(val, x + 10, y + (h < 70 ? 35 : 38), w - 20, h < 70 ? 14 : 18);
-                    }
-                    if (subVal) {
-                        ctx.fillStyle = '#334155';
-                        ctx.font = '12px Inter, sans-serif';
-                        wrapText(subVal, x + 10, Math.max(y + 56, nextY + 2), w - 20, 15);
-                    }
-                }
+            }
 
-                // Cột trái
-                drawFieldBox(40, 125, 560, 115, '1. Shipper / Exporter (Name & Address)', s.shipper, s.shipperAddress || 'Địa chỉ chưa khai báo');
-                drawFieldBox(40, 240, 560, 115, '2. Consignee (Name & Address / To Order Of)', s.consignee, s.consigneeAddress || 'Địa chỉ chưa khai báo');
-                drawFieldBox(40, 355, 560, 115, '3. Notify Party / Intermediate Consignee', s.notifyParty || 'SAME AS CONSIGNEE', s.notifyAddress || s.consigneeAddress || 'Địa chỉ chưa khai báo');
+            // Cột trái
+            drawFieldBox(40, 125, 560, 115, '1. Shipper / Exporter (Name & Address)', s.shipper, s.shipperAddress || 'Địa chỉ chưa khai báo');
+            drawFieldBox(40, 240, 560, 115, '2. Consignee (Name & Address / To Order Of)', s.consignee, s.consigneeAddress || 'Địa chỉ chưa khai báo');
+            drawFieldBox(40, 355, 560, 115, '3. Notify Party / Intermediate Consignee', s.notifyParty || 'SAME AS CONSIGNEE', s.notifyAddress || s.consigneeAddress || 'Địa chỉ chưa khai báo');
 
-                // Cột phải
-                var routePoints = String(s.route || '').split('→').map(function (p) { return p.trim(); });
-                var originPort = routePoints[0] || 'Chưa khai báo';
-                var destPort = routePoints[routePoints.length - 1] || 'Chưa khai báo';
-                var routeLegs = routePlanFor(s).legs || [];
-                var seaLegs = routeLegs.filter(function (g) { return g.m === 'sea'; });
-                var firstSeaNames = seaLegs.length ? seaLegs[0].l.split('→').map(function (p) { return p.trim(); }) : [];
-                var lastSeaNames = seaLegs.length ? seaLegs[seaLegs.length - 1].l.split('→').map(function (p) { return p.trim(); }) : [];
-                var loadingPort = firstSeaNames[0] || originPort;
-                var dischargePort = lastSeaNames[lastSeaNames.length - 1] || destPort;
-                var hsMatch = String(s.cargo || '').match(/\bHS\s*:?\s*(\d{4}[.\s]?\d{2}[.\s]?\d{2})\b/i);
-                var hsCode = s.hsCode || (hsMatch && hsMatch[1]) || 'Chưa khai báo';
-                drawFieldBox(600, 125, 280, 58, 'Pre-Carriage By', s.modeShort ? s.modeShort.split('+')[0].trim() : 'Road Feeder');
-                drawFieldBox(880, 125, 280, 58, 'Place of Receipt', originPort);
-                drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', (s.vessel || s.flightNo || 'Chưa khai báo') + (s.voyage ? ' / ' + s.voyage : ''));
-                drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', loadingPort);
-                drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', dischargePort);
-                drawFieldBox(880, 240, 280, 58, 'Place of Delivery', destPort);
-                drawFieldBox(600, 298, 280, 57, 'Carrier / Liners Agent', s.carrier || 'MAERSK / ONE LINE CO., LTD');
-                drawFieldBox(880, 298, 280, 57, 'Movement Type & Freight', 'FCL/FCL · ' + (s.incoterm || 'CIF Hải Phòng'));
-                drawFieldBox(600, 355, 560, 115, 'Export References & Customs Info', 'TK Hải Quan: ' + (s.customsDec || 'Chờ mở') + ' · Phân luồng: ' + customsLabel(s.customsStatus), 'Incoterms: ' + (s.incoterm || 'CIF') + ' · Free time D&D: ' + (s.dd || 'Chưa hết hạn'));
-                ctx.fillStyle = '#334155'; ctx.font = '12px Inter, sans-serif';
-                if (s.etd || s.eta) wrapText('ETD: ' + (s.etd || 'Chưa khai báo') + '  ·  ETA: ' + (s.eta || 'Chưa khai báo'), 610, 438, 530, 15);
+            // Cột phải
+            var routePoints = String(s.route || '').split('→').map(function (p) { return p.trim(); });
+            var originPort = routePoints[0] || 'Chưa khai báo';
+            var destPort = routePoints[routePoints.length - 1] || 'Chưa khai báo';
+            var routeLegs = routePlanFor(s).legs || [];
+            var seaLegs = routeLegs.filter(function (g) { return g.m === 'sea'; });
+            var firstSeaNames = seaLegs.length ? seaLegs[0].l.split('→').map(function (p) { return p.trim(); }) : [];
+            var lastSeaNames = seaLegs.length ? seaLegs[seaLegs.length - 1].l.split('→').map(function (p) { return p.trim(); }) : [];
+            var loadingPort = firstSeaNames[0] || originPort;
+            var dischargePort = lastSeaNames[lastSeaNames.length - 1] || destPort;
+            var hsMatch = String(s.cargo || '').match(/\bHS\s*:?\s*(\d{4}[.\s]?\d{2}[.\s]?\d{2})\b/i);
+            var hsCode = s.hsCode || (hsMatch && hsMatch[1]) || 'Chưa khai báo';
+            drawFieldBox(600, 125, 280, 58, 'Pre-Carriage By', s.modeShort ? s.modeShort.split('+')[0].trim() : 'Road Feeder');
+            drawFieldBox(880, 125, 280, 58, 'Place of Receipt', originPort);
+            drawFieldBox(600, 183, 280, 57, 'Ocean Vessel / Flight / Train', (s.vessel || s.flightNo || 'Chưa khai báo') + (s.voyage ? ' / ' + s.voyage : ''));
+            drawFieldBox(880, 183, 280, 57, 'Port of Loading (POL)', loadingPort);
+            drawFieldBox(600, 240, 280, 58, 'Port of Discharge (POD)', dischargePort);
+            drawFieldBox(880, 240, 280, 58, 'Place of Delivery', destPort);
+            drawFieldBox(600, 298, 280, 57, 'Carrier / Liners Agent', s.carrier || 'MAERSK / ONE LINE CO., LTD');
+            drawFieldBox(880, 298, 280, 57, 'Movement Type & Freight', 'FCL/FCL · ' + (s.incoterm || 'CIF Hải Phòng'));
+            drawFieldBox(600, 355, 560, 115, 'Export References & Customs Info', 'TK Hải Quan: ' + (s.customsDec || 'Chờ mở') + ' · Phân luồng: ' + customsLabel(s.customsStatus), 'Incoterms: ' + (s.incoterm || 'CIF') + ' · Free time D&D: ' + (s.dd || 'Chưa hết hạn'));
+            ctx.fillStyle = '#334155'; ctx.font = '12px Inter, sans-serif';
+            if (s.etd || s.eta) wrapText('ETD: ' + (s.etd || 'Chưa khai báo') + '  ·  ETA: ' + (s.eta || 'Chưa khai báo'), 610, 438, 530, 15);
 
-                // 2. BẢNG CHI TIẾT HÀNG HÓA
-                var tableTop = 475;
-                ctx.fillStyle = '#0F172A';
-                ctx.fillRect(40, tableTop, 1120, 32);
+            // 2. BẢNG CHI TIẾT HÀNG HÓA
+            var tableTop = 475;
+            ctx.fillStyle = '#0F172A';
+            ctx.fillRect(40, tableTop, 1120, 32);
 
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = 'bold 11px Inter, sans-serif';
-                ctx.fillText('CONTAINER NO. / SEAL NO.', 55, tableTop + 20);
-                ctx.fillText('NO. & PKGS', 290, tableTop + 20);
-                ctx.fillText('DESCRIPTION OF PACKAGES AND GOODS', 450, tableTop + 20);
-                ctx.fillText('GROSS WEIGHT', 880, tableTop + 20);
-                ctx.fillText('MEASUREMENT', 1030, tableTop + 20);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillText('CONTAINER NO. / SEAL NO.', 55, tableTop + 20);
+            ctx.fillText('NO. & PKGS', 290, tableTop + 20);
+            ctx.fillText('DESCRIPTION OF PACKAGES AND GOODS', 450, tableTop + 20);
+            ctx.fillText('GROSS WEIGHT', 880, tableTop + 20);
+            ctx.fillText('MEASUREMENT', 1030, tableTop + 20);
 
-                ctx.strokeStyle = '#0F172A';
-                ctx.strokeRect(40, tableTop, 1120, 540);
-                ctx.beginPath();
-                ctx.moveTo(275, tableTop); ctx.lineTo(275, tableTop + 540);
-                ctx.moveTo(435, tableTop); ctx.lineTo(435, tableTop + 540);
-                ctx.moveTo(865, tableTop); ctx.lineTo(865, tableTop + 540);
-                ctx.moveTo(1015, tableTop); ctx.lineTo(1015, tableTop + 540);
-                ctx.stroke();
+            ctx.strokeStyle = '#0F172A';
+            ctx.strokeRect(40, tableTop, 1120, 540);
+            ctx.beginPath();
+            ctx.moveTo(275, tableTop); ctx.lineTo(275, tableTop + 540);
+            ctx.moveTo(435, tableTop); ctx.lineTo(435, tableTop + 540);
+            ctx.moveTo(865, tableTop); ctx.lineTo(865, tableTop + 540);
+            ctx.moveTo(1015, tableTop); ctx.lineTo(1015, tableTop + 540);
+            ctx.stroke();
 
-                var rY = tableTop + 65;
-                ctx.fillStyle = '#0F172A';
+            var rY = tableTop + 65;
+            ctx.fillStyle = '#0F172A';
 
-                ctx.font = '900 16px Inter, monospace';
-                ctx.fillText(s.container || 'MSKU9082341', 55, rY);
-                ctx.font = '12px Inter, sans-serif';
-                ctx.fillStyle = '#475569';
-                ctx.fillText('SEAL: ' + (s.seal || 'Chưa khai báo'), 55, rY + 24);
-                ctx.fillText('TYPE: ' + (s.containerType || '40GP / HIGH CUBE'), 55, rY + 44);
+            ctx.font = '900 16px Inter, monospace';
+            ctx.fillText(s.container || 'MSKU9082341', 55, rY);
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillStyle = '#475569';
+            ctx.fillText('SEAL: ' + (s.seal || 'Chưa khai báo'), 55, rY + 24);
+            ctx.fillText('TYPE: ' + (s.containerType || '40GP / HIGH CUBE'), 55, rY + 44);
 
-                ctx.fillStyle = '#0F172A';
-                ctx.font = 'bold 14px Inter, sans-serif';
-                var quantityEndY = wrapText(s.quantity || 'Chưa khai báo', 290, rY, 130, 18);
-                ctx.font = '12px Inter, sans-serif';
-                ctx.fillStyle = '#475569';
-                ctx.fillText('PALLETIZED CARGO', 290, quantityEndY + 8);
-                ctx.fillText('STOWED IN CONTAINER', 290, quantityEndY + 26);
+            ctx.fillStyle = '#0F172A';
+            ctx.font = 'bold 14px Inter, sans-serif';
+            var quantityEndY = wrapText(s.quantity || 'Chưa khai báo', 290, rY, 130, 18);
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillStyle = '#475569';
+            ctx.fillText('PALLETIZED CARGO', 290, quantityEndY + 8);
+            ctx.fillText('STOWED IN CONTAINER', 290, quantityEndY + 26);
 
-                ctx.fillStyle = '#0F172A';
-                ctx.font = '900 16px Inter, sans-serif';
-                var goodsEndY = wrapText(s.cargo || 'Chưa khai báo', 450, rY, 400, 21);
+            ctx.fillStyle = '#0F172A';
+            ctx.font = '900 16px Inter, sans-serif';
+            var goodsEndY = wrapText(s.cargo || 'Chưa khai báo', 450, rY, 400, 21);
 
-                ctx.font = '13px Inter, sans-serif';
-                ctx.fillStyle = '#334155';
-                var detailY = goodsEndY + 8;
-                detailY = wrapText('HS CODE: ' + hsCode + ' | INCOTERMS: ' + (s.incoterm || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
-                detailY = wrapText('ORIGIN: ' + originPort + ' ➔ DESTINATION: ' + destPort, 450, detailY, 400, 18) + 4;
-                detailY = wrapText('CARRIER BOOKING NO: ' + (s.booking || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
+            ctx.font = '13px Inter, sans-serif';
+            ctx.fillStyle = '#334155';
+            var detailY = goodsEndY + 8;
+            detailY = wrapText('HS CODE: ' + hsCode + ' | INCOTERMS: ' + (s.incoterm || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
+            detailY = wrapText('ORIGIN: ' + originPort + ' ➔ DESTINATION: ' + destPort, 450, detailY, 400, 18) + 4;
+            detailY = wrapText('CARRIER BOOKING NO: ' + (s.booking || 'Chưa khai báo'), 450, detailY, 400, 18) + 4;
 
-                if (s.showTemp) {
-                    ctx.fillStyle = '#0284C7';
-                    ctx.font = 'bold 13px Inter, sans-serif';
-                    wrapText('★ TEMPERATURE CONTROLLED: SET TEMP ' + s.temp + ' (CONTINUOUS GENSET ACTIVE)', 450, detailY, 400, 18);
-                }
-
-                ctx.fillStyle = '#0F172A';
-                ctx.font = '900 16px Inter, monospace';
-                fitText((s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, rY, 125);
-                ctx.fillStyle = '#475569';
-                ctx.font = '12px Inter, sans-serif';
-
-                ctx.fillStyle = '#0F172A';
-                ctx.font = '900 16px Inter, monospace';
-                fitText((s.volume ? Number(s.volume).toFixed(3) + ' CBM' : 'Chưa khai báo'), 1030, rY, 120);
-                ctx.fillStyle = '#475569';
-                ctx.font = '12px Inter, sans-serif';
-                ctx.fillText('STANDARD CUBE', 1030, rY + 24);
-
-                ctx.fillStyle = '#F1F5F9';
-                ctx.fillRect(40, tableTop + 490, 1120, 50);
-                ctx.strokeStyle = '#0F172A';
-                ctx.strokeRect(40, tableTop + 490, 1120, 50);
-                ctx.fillStyle = '#0F172A';
+            if (s.showTemp) {
+                ctx.fillStyle = '#0284C7';
                 ctx.font = 'bold 13px Inter, sans-serif';
-                ctx.fillText('TOTAL CONTAINERS / PACKAGES: 1 UNIT (FCL/FCL) — CLEAN ON BOARD', 55, tableTop + 520);
-                fitText('TOTAL GROSS: ' + (s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, tableTop + 520, 265);
+                wrapText('★ TEMPERATURE CONTROLLED: SET TEMP ' + s.temp + ' (CONTINUOUS GENSET ACTIVE)', 450, detailY, 400, 18);
+            }
 
-                // 3. KHU VỰC ĐIỀU KHOẢN VÀ CON DẤU MỘC
-                var bTop = 1030;
-                drawFieldBox(40, bTop, 560, 110, 'Declared Value & Freight Payable At', 'FREIGHT PREPAID — DESTINATION CURRENCY', 'Carrier not responsible for delay beyond control / Act of God');
-                drawFieldBox(600, bTop, 560, 110, 'Date and Place of Issue', originPort + ' · ' + (s.etaPlanned ? s.etaPlanned.split(' ')[0] : '08/11/2026'), 'Three (3) Original Bills of Lading signed, one being accomplished others void');
+            ctx.fillStyle = '#0F172A';
+            ctx.font = '900 16px Inter, monospace';
+            fitText((s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, rY, 125);
+            ctx.fillStyle = '#475569';
+            ctx.font = '12px Inter, sans-serif';
 
-                var barY = 1170;
-                ctx.fillStyle = '#0F172A';
-                ctx.font = 'bold 11px Inter, sans-serif';
-                ctx.fillText('TRACKING BARCODE (VERIFIED EDI SIGNATURE):', 55, barY);
-                var bx = 55;
-                for (var b = 0; b < 65; b++) {
-                    var bw = (b % 5 === 0 ? 4 : (b % 3 === 0 ? 2 : (b % 2 === 0 ? 3 : 1)));
-                    ctx.fillRect(bx, barY + 12, bw, 45);
-                    bx += bw + 3;
-                }
-                ctx.font = 'bold 12px Inter, monospace';
-                ctx.fillText('*' + (s.bl || s.id) + '*', 120, barY + 75);
+            ctx.fillStyle = '#0F172A';
+            ctx.font = '900 16px Inter, monospace';
+            fitText((s.volume ? Number(s.volume).toFixed(3) + ' CBM' : 'Chưa khai báo'), 1030, rY, 120);
+            ctx.fillStyle = '#475569';
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillText('STANDARD CUBE', 1030, rY + 24);
 
-                ctx.fillStyle = '#64748B';
-                ctx.font = '9px Inter, sans-serif';
-                ctx.fillText('RECEIVED by the Carrier from the Shipper in apparent good order and condition unless otherwise indicated herein, the Goods or the', 55, 1290);
-                ctx.fillText('Container(s) or packages said to contain the Goods. In accepting this Bill of Lading, the Merchant agrees to be bound by all the', 55, 1305);
-                ctx.fillText('stipulations, exceptions, terms and conditions on the face and back hereof, whether written, printed, stamped or incorporated.', 55, 1320);
+            ctx.fillStyle = '#F1F5F9';
+            ctx.fillRect(40, tableTop + 490, 1120, 50);
+            ctx.strokeStyle = '#0F172A';
+            ctx.strokeRect(40, tableTop + 490, 1120, 50);
+            ctx.fillStyle = '#0F172A';
+            ctx.font = 'bold 13px Inter, sans-serif';
+            ctx.fillText('TOTAL CONTAINERS / PACKAGES: 1 UNIT (FCL/FCL) — CLEAN ON BOARD', 55, tableTop + 520);
+            fitText('TOTAL GROSS: ' + (s.weight ? Math.round(s.weight * 1000).toLocaleString('en-US') + ' KGS' : 'Chưa khai báo'), 880, tableTop + 520, 265);
 
-                var stampX = 880, stampY = 1240;
-                ctx.save();
-                ctx.translate(stampX, stampY);
-                ctx.rotate(-10 * Math.PI / 180);
+            // 3. KHU VỰC ĐIỀU KHOẢN VÀ CON DẤU MỘC
+            var bTop = 1030;
+            drawFieldBox(40, bTop, 560, 110, 'Declared Value & Freight Payable At', 'FREIGHT PREPAID — DESTINATION CURRENCY', 'Carrier not responsible for delay beyond control / Act of God');
+            drawFieldBox(600, bTop, 560, 110, 'Date and Place of Issue', originPort + ' · ' + (s.etaPlanned ? s.etaPlanned.split(' ')[0] : '08/11/2026'), 'Three (3) Original Bills of Lading signed, one being accomplished others void');
 
-                ctx.strokeStyle = '#1D4ED8';
-                ctx.fillStyle = '#1D4ED8';
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.arc(0, 0, 75, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.arc(0, 0, 68, 0, Math.PI * 2);
-                ctx.stroke();
+            var barY = 1170;
+            ctx.fillStyle = '#0F172A';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillText('TRACKING BARCODE (VERIFIED EDI SIGNATURE):', 55, barY);
+            var bx = 55;
+            for (var b = 0; b < 65; b++) {
+                var bw = (b % 5 === 0 ? 4 : (b % 3 === 0 ? 2 : (b % 2 === 0 ? 3 : 1)));
+                ctx.fillRect(bx, barY + 12, bw, 45);
+                bx += bw + 3;
+            }
+            ctx.font = 'bold 12px Inter, monospace';
+            ctx.fillText('*' + (s.bl || s.id) + '*', 120, barY + 75);
 
-                ctx.font = '900 10px Inter, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('OMNIFLOW CARRIER SERVICES', 0, -45);
-                ctx.font = '900 13px Inter, sans-serif';
-                ctx.fillText('★ ORIGINAL ★', 0, -20);
-                ctx.font = 'bold 11px Inter, sans-serif';
-                ctx.fillText('FREIGHT PREPAID', 0, 2);
-                ctx.fillText('VERIFIED & ISSUED', 0, 22);
-                ctx.font = '9px Inter, sans-serif';
-                ctx.fillText(new Date(s.generatedAt || Date.now()).toLocaleDateString('vi-VN'), 0, 42);
-                ctx.fillText('SEALED BY MASTER', 0, 56);
+            ctx.fillStyle = '#64748B';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.fillText('RECEIVED by the Carrier from the Shipper in apparent good order and condition unless otherwise indicated herein, the Goods or the', 55, 1290);
+            ctx.fillText('Container(s) or packages said to contain the Goods. In accepting this Bill of Lading, the Merchant agrees to be bound by all the', 55, 1305);
+            ctx.fillText('stipulations, exceptions, terms and conditions on the face and back hereof, whether written, printed, stamped or incorporated.', 55, 1320);
 
-                ctx.strokeStyle = '#0284C7';
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.moveTo(-50, -5);
-                ctx.bezierCurveTo(-20, -35, 10, 15, 45, -15);
-                ctx.bezierCurveTo(20, -5, 5, 25, 60, 10);
-                ctx.stroke();
+            var stampX = 880, stampY = 1240;
+            ctx.save();
+            ctx.translate(stampX, stampY);
+            ctx.rotate(-10 * Math.PI / 180);
 
-                ctx.restore();
+            ctx.strokeStyle = '#1D4ED8';
+            ctx.fillStyle = '#1D4ED8';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 75, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, 68, 0, Math.PI * 2);
+            ctx.stroke();
 
-                ctx.fillStyle = '#94A3B8';
-                ctx.font = 'bold 11px Inter, sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('OMNIFLOW 360 PRO · BẢN VẬN ĐƠN MÔ PHỎNG', 600, 1670);
+            ctx.font = '900 10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('OMNIFLOW CARRIER SERVICES', 0, -45);
+            ctx.font = '900 13px Inter, sans-serif';
+            ctx.fillText('★ ORIGINAL ★', 0, -20);
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.fillText('FREIGHT PREPAID', 0, 2);
+            ctx.fillText('VERIFIED & ISSUED', 0, 22);
+            ctx.font = '9px Inter, sans-serif';
+            ctx.fillText(new Date(s.generatedAt || Date.now()).toLocaleDateString('vi-VN'), 0, 42);
+            ctx.fillText('SEALED BY MASTER', 0, 56);
 
-                await drawBillQRCode(ctx, s);
-                return canvas.toDataURL('image/jpeg', 0.94);
+            ctx.strokeStyle = '#0284C7';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(-50, -5);
+            ctx.bezierCurveTo(-20, -35, 10, 15, 45, -15);
+            ctx.bezierCurveTo(20, -5, 5, 25, 60, 10);
+            ctx.stroke();
+
+            ctx.restore();
+
+            ctx.fillStyle = '#94A3B8';
+            ctx.font = 'bold 11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('OMNIFLOW 360 PRO · BẢN VẬN ĐƠN MÔ PHỎNG', 600, 1670);
+
+            await drawBillQRCode(ctx, s);
+            return canvas.toDataURL('image/jpeg', 0.94);
         }
 
         function createCustomsExcelFile(s) {
@@ -2474,7 +2542,7 @@
             try { asset = await getAsset(binding); } catch (e) { console.warn('Không mở được ảnh nguồn để quét:', e); return {}; }
             var match = asset && asset.data && asset.data.match(/^data:([^;,]+);base64,(.*)$/s);
             if (!match || !/^image\//.test(match[1])) return {};
-            var prompt = 'Đọc TOÀN BỘ ảnh vận đơn, đặc biệt bảng PARTICULARS FURNISHED BY SHIPPER và các ô Weight/Measurement. Chỉ trả một JSON object, không markdown. Khóa: weight (số tấn; nếu ảnh ghi KGS thì chia 1000), volume (số CBM), quantity, shipperAddress, consigneeAddress, notifyParty, notifyAddress, vessel, voyage, seal, etd, eta. Giữ nguyên chữ của các trường văn bản; số dùng dấu chấm thập phân JSON (ví dụ 24,850 KGS = 24.85 tấn; 28.500 CBM = 28.5). Mỗi trường không nhìn thấy rõ phải là null. Không suy đoán, không lấy TARE hoặc VGM làm gross weight.';
+            var prompt = 'Đọc TOÀN BỘ ảnh vận đơn tiếng Việt hoặc tiếng Anh. Tìm cả nhãn Trọng lượng hàng, Tổng trọng lượng, Khối lượng hàng, Gross Weight, Gross Wgt, Weight và các ô Measurement/Thể tích. Với AWB, đọc số trong cột Gross Weight và đơn vị kg/KG sát bên; không dùng cột Chargeable Weight. Chỉ trả một JSON object, không markdown. Khóa: weight (SỐ TẤN; nếu ảnh ghi kg/KGS thì chia 1000), volume (số CBM/m³), quantity, shipperAddress, consigneeAddress, notifyParty, notifyAddress, vessel, voyage, seal, etd, eta. Ví dụ Trọng lượng hàng 38.200 kg nghĩa là 38.2 tấn; 24,850 KGS nghĩa là 24.85 tấn. Với số kg, dấu chấm hoặc dấu phẩy trước đúng ba chữ số cuối là dấu phân cách hàng nghìn. Giữ nguyên chữ của các trường văn bản; trường không nhìn thấy rõ là null. Không suy đoán, không lấy TARE hoặc VGM làm gross weight.';
             for (var i = 0; i < Math.min(2, GEMINI_MODELS.length); i++) {
                 try {
                     var controller = new AbortController(), timer = setTimeout(function () { controller.abort(); }, 12000);
@@ -2494,7 +2562,7 @@
                         var n = fields[k];
                         if (typeof n === 'string') {
                             var raw = n.trim(), normalized = raw.replace(/[^\d.,]/g, '');
-                            var inKg = k === 'weight' && /\b(kgs?|kilograms?)\b/i.test(raw);
+                            var inKg = k === 'weight' && /(?:\b(?:kgs?|kilograms?)\b|ki[- ]?lô[- ]?gam)/i.test(raw);
                             if (inKg && /^\d{1,3}[,.]\d{3}$/.test(normalized)) normalized = normalized.replace(/[,.]/g, '');
                             else if (/^\d{1,3}(,\d{3}){2,}(\.\d+)?$/.test(normalized)) normalized = normalized.replace(/,/g, '');
                             else if (normalized.includes(',') && !normalized.includes('.')) normalized = normalized.replace(',', '.');
@@ -2516,6 +2584,12 @@
             var sourceBinding = priorBinding.sourceBill || (priorBinding.bill && !/_DRAFT\.jpg$/i.test(priorBinding.bill.name || '') ? priorBinding.bill : null) || BUNDLED_DOCUMENTS.bindings[shipId]?.bill;
             var missingSourceFields = ['weight', 'volume', 'quantity', 'shipperAddress', 'consigneeAddress', 'notifyParty', 'notifyAddress', 'voyage', 'seal', 'etd'].some(function (k) { return s[k] == null || s[k] === ''; });
             var scanned = missingSourceFields ? await scanBillFields(sourceBinding) : {};
+            // Verified weights printed on the two bundled source documents (stored in tons).
+            var bundledWeightTons = {
+                'bundled-SHIP-VN-7710-bill': 0.21, // AWB: Gross Weight 210 KG
+                'bundled-SHIP-VN-9042-bill': 38.2 // Rail bill: Trọng lượng hàng 38.200 kg
+            };
+            if (sourceBinding && !s.weight && !scanned.weight && bundledWeightTons[sourceBinding.id]) scanned.weight = bundledWeightTons[sourceBinding.id];
             var documentShipment = Object.assign({}, s);
             Object.keys(scanned).forEach(function (k) { if (documentShipment[k] == null || documentShipment[k] === '') documentShipment[k] = scanned[k]; });
             Object.assign(documentShipment, {
@@ -2828,7 +2902,7 @@
             for (var i = 0; i < models.length; i++) {
                 var modelName = models[i];
                 var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + encodeURIComponent(apiKey);
-                
+
                 var userParts = [
                     { text: systemContext + "\n\n--- YÊU CẦU / BÀI BÁO / CÂU HỎI / CHỨNG TỪ CỦA NGƯỜI DÙNG ---\n" + userText }
                 ];
@@ -3616,7 +3690,8 @@
             el('chat-msgs').innerHTML = '<div class="chat-answer">Đã xóa hội thoại. Bạn có thể tra cứu mã lô, dán bài báo hoặc tải/dán ảnh chứng từ B/L, AWB để phân tích.</div>';
         }
 
-        function switchTab(tab) { if (tab === 'chat') setTimeout(updateGeminiUIBadge, 50); var tabs = ['dashboard', 'shipments', 'ebl', 'ai', 'alerts', 'chat']; if (!tabs.includes(tab)) return; tabs.forEach(function (id) { el('tab-' + id).classList.add('hidden'); el('tb-' + id).classList.remove('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + id).classList.add('text-slate-400', 'border-transparent') }); el('tab-' + tab).classList.remove('hidden'); el('tb-' + tab).classList.add('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + tab).classList.remove('text-slate-400', 'border-transparent'); if (tab === 'dashboard') { renderDashboard(); setTimeout(initMap, 60) } if (tab === 'shipments') renderShipTable(value('ship-filter') || 'ALL'); if (tab === 'ebl') { renderEBLTable(); renderTemplates() } if (tab === 'alerts') renderAlerts(); if (tab === 'ai' && analysisMap) setTimeout(function () { analysisMap.invalidateSize() }, 80); }
+        function toggleMobileNav(force) { var nav = el('app-nav'), button = document.querySelector('.mobile-nav-toggle'); var open = typeof force === 'boolean' ? force : !nav.classList.contains('is-open'); nav.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); }
+        function switchTab(tab) { if (tab === 'chat') setTimeout(updateGeminiUIBadge, 50); var tabs = ['dashboard', 'shipments', 'ebl', 'ai', 'alerts', 'chat']; if (!tabs.includes(tab)) return; el('mobile-nav-label').textContent = el('tb-' + tab).querySelector('span').textContent.trim(); toggleMobileNav(false); tabs.forEach(function (id) { el('tab-' + id).classList.add('hidden'); el('tb-' + id).classList.remove('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + id).classList.add('text-slate-400', 'border-transparent') }); el('tab-' + tab).classList.remove('hidden'); el('tb-' + tab).classList.add('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + tab).classList.remove('text-slate-400', 'border-transparent'); if (tab === 'dashboard') { renderDashboard(); setTimeout(initMap, 60) } if (tab === 'shipments') renderShipTable(value('ship-filter') || 'ALL'); if (tab === 'ebl') { renderEBLTable(); renderTemplates() } if (tab === 'alerts') renderAlerts(); if (tab === 'ai' && analysisMap) setTimeout(function () { analysisMap.invalidateSize() }, 80); }
         window.onload = function () { if (location.hash.startsWith('#bill=')) showSharedBill(); else initializeDemo(); };
 
     </script>
