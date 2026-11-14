@@ -887,7 +887,10 @@
                             khởi
                             tạo...</span>
                     </div>
-                    <div class="flex items-center gap-2 flex-1 max-w-md">
+                    <div class="flex items-center gap-2 flex-1 max-w-xl">
+                        <select id="gemini-model-select" class="field py-1 text-xs font-mono" style="max-width:190px"
+                            title="Chọn model Gemini (model được chọn chạy trước, lỗi thì tự chuyển sang model khác)"
+                            onchange="saveGeminiModel(this.value)"></select>
                         <input id="gemini-api-key" type="password" class="field py-1 text-xs font-mono"
                             placeholder="Dán Google Gemini API Key vào đây (hoặc điền trong mã nguồn)..."
                             oninput="saveGeminiKey(this.value)">
@@ -2543,12 +2546,13 @@
             var match = asset && asset.data && asset.data.match(/^data:([^;,]+);base64,(.*)$/s);
             if (!match || !/^image\//.test(match[1])) return {};
             var prompt = 'Đọc TOÀN BỘ ảnh vận đơn tiếng Việt hoặc tiếng Anh. Tìm cả nhãn Trọng lượng hàng, Tổng trọng lượng, Khối lượng hàng, Gross Weight, Gross Wgt, Weight và các ô Measurement/Thể tích. Với AWB, đọc số trong cột Gross Weight và đơn vị kg/KG sát bên; không dùng cột Chargeable Weight. Chỉ trả một JSON object, không markdown. Khóa: weight (SỐ TẤN; nếu ảnh ghi kg/KGS thì chia 1000), volume (số CBM/m³), quantity, shipperAddress, consigneeAddress, notifyParty, notifyAddress, vessel, voyage, seal, etd, eta. Ví dụ Trọng lượng hàng 38.200 kg nghĩa là 38.2 tấn; 24,850 KGS nghĩa là 24.85 tấn. Với số kg, dấu chấm hoặc dấu phẩy trước đúng ba chữ số cuối là dấu phân cách hàng nghìn. Giữ nguyên chữ của các trường văn bản; trường không nhìn thấy rõ là null. Không suy đoán, không lấy TARE hoặc VGM làm gross weight.';
-            for (var i = 0; i < Math.min(2, GEMINI_MODELS.length); i++) {
+            var scanModels = getGeminiModels();
+            for (var i = 0; i < Math.min(2, scanModels.length); i++) {
                 try {
                     var controller = new AbortController(), timer = setTimeout(function () { controller.abort(); }, 12000);
                     var response;
                     try {
-                        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODELS[i] + ':generateContent?key=' + encodeURIComponent(key), {
+                        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + scanModels[i] + ':generateContent?key=' + encodeURIComponent(key), {
                             method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
                             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: match[1], data: match[2] } }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json', maxOutputTokens: 1024 } })
                         });
@@ -2765,17 +2769,43 @@
 
         // MẢNG MODEL LUÂN PHIÊN (ROTATION): Ưu tiên các model Flash siêu tốc ~1s & hỗ trợ Multimodal Vision 100%
         var GEMINI_MODELS = [
-            'gemini-2.5-flash',         // Chuẩn Google Multimodal Vision ổn định nhất
-            'gemini-2.0-flash',         // Thế hệ Gemini 2.0 Flash đa phương thức
-            'gemini-1.5-flash',         // Bản Flash tiêu chuẩn toàn cầu
-            'gemini-2.5-flash-lite',    // Siêu tốc Flash Lite
-            'gemini-flash-lite-latest', // Alias chính thức của Google cho Flash Lite
-            'gemini-3.5-flash-lite',    // Thế hệ Flash Lite 3.5
-            'gemini-3.1-flash-lite',    // Thế hệ 3.1 Flash Lite
-            'gemini-3-flash-preview',   // Thế hệ Gemini 3 Flash
-            'gemini-3.8-flash',         // Thế hệ cao cấp 3.8 Flash
-            'gemini-3.5-flash'          // Thế hệ 3.5 Flash tiêu chuẩn
+            'gemini-3.5-flash',         // MẶC ĐỊNH: Gemini 3.5 Flash tiêu chuẩn
+            'gemini-3.5-flash-lite',    // 3.5 Flash Lite
+            'gemini-3.1-flash-lite',    // 3.1 Flash Lite
+            'gemini-3-flash-preview',   // Gemini 3 Flash
+            'gemini-3.8-flash',         // 3.8 Flash
+            'gemini-2.5-flash'          // 2.5 Flash (dự phòng)
         ];
+        var DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+
+        // Model người dùng chọn (lưu localStorage), mặc định 3.5
+        function getSelectedGeminiModel() {
+            try {
+                var m = (localStorage.getItem('omniflow_gemini_model') || '').trim();
+                if (m && GEMINI_MODELS.indexOf(m) !== -1) return m;
+            } catch (e) { }
+            return DEFAULT_GEMINI_MODEL;
+        }
+
+        function saveGeminiModel(m) {
+            try { localStorage.setItem('omniflow_gemini_model', m); } catch (e) { }
+            updateGeminiUIBadge();
+        }
+
+        // Danh sách thứ tự gọi: model được chọn chạy TRƯỚC, các model còn lại làm dự phòng
+        function getGeminiModels() {
+            var sel = getSelectedGeminiModel();
+            return [sel].concat(GEMINI_MODELS.filter(function (x) { return x !== sel; }));
+        }
+
+        function renderGeminiModelSelect() {
+            var sel = el('gemini-model-select');
+            if (!sel) return;
+            var cur = getSelectedGeminiModel();
+            sel.innerHTML = GEMINI_MODELS.map(function (m) {
+                return '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + m + '</option>';
+            }).join('');
+        }
 
         function getGeminiKey() {
             if (typeof GOOGLE_GEMINI_API_KEY === 'string' && GOOGLE_GEMINI_API_KEY.trim()) {
@@ -2809,6 +2839,7 @@
         }
 
         function updateGeminiUIBadge() {
+            renderGeminiModelSelect();
             var key = getGeminiKey();
             var badge = el('gemini-status-badge');
             var input = el('gemini-api-key');
@@ -2816,7 +2847,7 @@
             if (!badge) return;
             if (key) {
                 badge.className = 'pill bg-teal-500/20 text-teal-300 border-teal-500/40 font-semibold';
-                badge.innerHTML = '🟢 Gemini Live Active (' + GEMINI_MODELS[0] + ')';
+                badge.innerHTML = '🟢 Gemini Live Active (' + getSelectedGeminiModel() + ')';
             } else {
                 badge.className = 'pill bg-slate-800 text-slate-400 border-slate-700';
                 badge.innerHTML = '⚪ Chế độ Offline NLP (Chưa nhập API Key)';
@@ -2895,7 +2926,7 @@
         }
 
         async function callGeminiWithRotation(apiKey, userText, attachment) {
-            var models = GEMINI_MODELS;
+            var models = getGeminiModels();
             var lastError = null;
             var systemContext = buildGeminiSystemContext();
 
@@ -2954,6 +2985,8 @@
                     var text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text;
 
                     if (text) {
+                        var liveBadge = el('gemini-status-badge');
+                        if (liveBadge) liveBadge.innerHTML = '🟢 Gemini Live Active (' + modelName + ')';
                         var formatted = renderMarkdownBasic(text);
                         return '<div class="space-y-2">' +
                             '<div class="flex items-center justify-between pb-1.5 border-b border-slate-800 text-[11px] font-mono">' +
@@ -3692,7 +3725,7 @@
 
         function toggleMobileNav(force) { var nav = el('app-nav'), button = document.querySelector('.mobile-nav-toggle'); var open = typeof force === 'boolean' ? force : !nav.classList.contains('is-open'); nav.classList.toggle('is-open', open); button.setAttribute('aria-expanded', String(open)); }
         function switchTab(tab) { if (tab === 'chat') setTimeout(updateGeminiUIBadge, 50); var tabs = ['dashboard', 'shipments', 'ebl', 'ai', 'alerts', 'chat']; if (!tabs.includes(tab)) return; el('mobile-nav-label').textContent = el('tb-' + tab).querySelector('span').textContent.trim(); toggleMobileNav(false); tabs.forEach(function (id) { el('tab-' + id).classList.add('hidden'); el('tb-' + id).classList.remove('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + id).classList.add('text-slate-400', 'border-transparent') }); el('tab-' + tab).classList.remove('hidden'); el('tb-' + tab).classList.add('text-teal-400', 'border-teal-400', 'font-bold'); el('tb-' + tab).classList.remove('text-slate-400', 'border-transparent'); if (tab === 'dashboard') { renderDashboard(); setTimeout(initMap, 60) } if (tab === 'shipments') renderShipTable(value('ship-filter') || 'ALL'); if (tab === 'ebl') { renderEBLTable(); renderTemplates() } if (tab === 'alerts') renderAlerts(); if (tab === 'ai' && analysisMap) setTimeout(function () { analysisMap.invalidateSize() }, 80); }
-        window.onload = function () { if (location.hash.startsWith('#bill=')) showSharedBill(); else initializeDemo(); };
+        window.onload = function () { if (location.hash.startsWith('#bill=')) showSharedBill(); else initializeDemo(); try { updateGeminiUIBadge(); } catch (e) { } };
 
     </script>
 </body>
